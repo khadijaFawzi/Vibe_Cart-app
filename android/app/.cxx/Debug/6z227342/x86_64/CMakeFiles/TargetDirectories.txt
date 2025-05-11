@@ -1,0 +1,2 @@
+C:/Flutter Projects/VibeCart/vibe_cart/android/app/.cxx/Debug/6z227342/x86_64/CMakeFiles/edit_cache.dir
+C:/Flutter Projects/VibeCart/vibe_cart/android/app/.cxx/Debug/6z227342/x86_64/CMakeFiles/rebuild_cache.dir
