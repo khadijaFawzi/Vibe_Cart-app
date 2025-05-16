@@ -57,5 +57,4 @@ class Product {
       'is_offer': isOffer,
       'discount_percentage': discountPercentage,
     };
-  }
-}
+  }}

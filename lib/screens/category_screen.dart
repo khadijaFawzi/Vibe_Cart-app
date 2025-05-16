@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
 import 'package:vibe_cart/models/category_model.dart';
-import 'package:vibe_cart/models/product_model.dart';
+import 'package:vibe_cart/models/product_supermarket_model.dart';
 import 'package:vibe_cart/screens/price_comparison_screen.dart';
 import 'package:vibe_cart/screens/product_details_screen.dart';
 import 'package:vibe_cart/services/provider_manager.dart';
 import 'package:vibe_cart/utils/theme.dart';
- 
+
 
 class CategoryScreen extends StatefulWidget {
   final Category category;
@@ -62,7 +62,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.category.name),
+          title: Text(widget.category.categoryName),
         ),
         body: _isLoading
             ? const Center(

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
-import 'package:vibe_cart/models/product_model.dart';
+import 'package:vibe_cart/models/product_supermarket_model.dart';
 import 'package:vibe_cart/screens/product_details_screen.dart';
 import 'package:vibe_cart/services/provider_manager.dart';
 import 'package:vibe_cart/utils/theme.dart';

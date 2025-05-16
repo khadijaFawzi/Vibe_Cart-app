@@ -1,17 +1,27 @@
 // lib/screens/home_screen.dart
-import 'package:flutter/material.dart';
 
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:vibe_cart/models/category_model.dart';
+import 'package:vibe_cart/provider/supermarket_provider.dart';
+import 'package:vibe_cart/screens/center_products_screen.dart';
+import 'package:vibe_cart/screens/shopping_centers_screen.dart';
+import 'package:vibe_cart/services/provider_manager.dart';
+
+
+import 'package:vibe_cart/api/category_provider.dart';
+
 import 'package:vibe_cart/screens/cart_screen.dart';
 import 'package:vibe_cart/screens/favorites_screen.dart';
 import 'package:vibe_cart/screens/settings_screen.dart';
-import 'package:vibe_cart/services/provider_manager.dart';
+
 import 'package:vibe_cart/utils/constants.dart';
 import 'package:vibe_cart/utils/theme.dart';
-import 'package:vibe_cart/widgets/category_item.dart';
 import 'package:vibe_cart/widgets/offer_item.dart';
-import 'package:vibe_cart/widgets/shopping_center_item.dart';
- 
+import 'package:vibe_cart/models/supermarket.dart';
+
+
+import '../api/category_provider.dart' show CategoryProvider;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,20 +32,20 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  
+
   final List<Widget> _pages = [
     const HomePageContent(),
     const FavoritesScreen(),
     const CartScreen(),
-   const SettingsScreen(),
+    const SettingsScreen(),
   ];
-  
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -43,11 +53,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           boxShadow: [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 8,
-              offset: Offset(0, -2),
-            ),
+            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, -2))
           ],
         ),
         child: ClipRRect(
@@ -56,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
             topRight: Radius.circular(20),
           ),
           child: BottomNavigationBar(
-            items: const <BottomNavigationBarItem>[
+            items: const [
               BottomNavigationBarItem(
                 icon: Icon(Icons.home_outlined),
                 activeIcon: Icon(Icons.home),
@@ -104,11 +110,11 @@ class _HomePageContentState extends State<HomePageContent> {
   @override
   void initState() {
     super.initState();
-    // جلب البيانات عند بدء الشاشة
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ProductProvider>().loadProducts();
       context.read<ProductProvider>().loadOffers();
       context.read<CategoryProvider>().loadCategories();
-      context.read<CenterProvider>().loadCenters();
+      context.read<SuperMarketProvider>().loadSupermarkets();
     });
   }
 
@@ -119,9 +125,9 @@ class _HomePageContentState extends State<HomePageContent> {
       child: SafeArea(
         child: Column(
           children: [
-            // شريط العنوان المخصص
+            // شريط العنوان + أيقونة الإعدادات
             Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -148,20 +154,17 @@ class _HomePageContentState extends State<HomePageContent> {
                   IconButton(
                     icon: const Icon(Icons.settings_outlined),
                     onPressed: () {
-                      setState(() {
-                        // اختيار الحساب من شريط التنقل السفلي
-                        (context.findAncestorStateOfType<_HomeScreenState>() as _HomeScreenState)
-                            ._onItemTapped(3);
-                      });
+                      (context.findAncestorStateOfType<_HomeScreenState>()!)
+                          ._onItemTapped(3);
                     },
                   ),
                 ],
               ),
             ),
-            
+
             // شريط البحث
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: TextField(
                 decoration: InputDecoration(
                   hintText: 'ابحث عن منتجات...',
@@ -172,38 +175,26 @@ class _HomePageContentState extends State<HomePageContent> {
                     borderRadius: BorderRadius.circular(15),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 ),
               ),
             ),
-            
-            // محتوى الصفحة المتبقي
+
+            // المحتوى الرئيسي مع RefreshIndicator
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () async {
+                  await context.read<ProductProvider>().loadProducts();
                   await context.read<ProductProvider>().loadOffers();
                   await context.read<CategoryProvider>().loadCategories();
-                  await context.read<CenterProvider>().loadCenters();
+                  await context.read<SuperMarketProvider>().loadSupermarkets();
                 },
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // العروض اليومية
-                      const SizedBox(height: 16),
-                      const Text(
-                        'العروض اليومية',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildOffers(),
-                      
-                      // الفئات
+                      // ===== قسم الفئات =====
                       const SizedBox(height: 24),
                       const Text(
                         'الفئات',
@@ -214,8 +205,20 @@ class _HomePageContentState extends State<HomePageContent> {
                       ),
                       const SizedBox(height: 12),
                       _buildCategories(),
-                      
-                      // المراكز التجارية
+
+                      // ===== قسم العروض اليومية =====
+                      const SizedBox(height: 24),
+                      const Text(
+                        'العروض اليومية',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildOffers(),
+
+                      // ===== قسم المراكز التجارية =====
                       const SizedBox(height: 24),
                       const Text(
                         'المراكز التجارية',
@@ -225,7 +228,7 @@ class _HomePageContentState extends State<HomePageContent> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _buildCenters(),
+                      _buildSupermarkets(),
                     ],
                   ),
                 ),
@@ -236,106 +239,9 @@ class _HomePageContentState extends State<HomePageContent> {
       ),
     );
   }
-  
-  Widget _buildOffers() {
-    final offersProvider = context.watch<ProductProvider>();
-    
-    if (offersProvider.isLoading) {
-      return SizedBox(
-        height: 180,
-        child: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(
-              Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        ),
-      );
-    }
-    
-    if (offersProvider.error.isNotEmpty) {
-      return SizedBox(
-        height: 180,
-        child: Center(
-          child: Text('خطأ: ${offersProvider.error}'),
-        ),
-      );
-    }
-    
-    if (offersProvider.offers.isEmpty) {
-      return const SizedBox(
-        height: 180,
-        child: Center(
-          child: Text('لا توجد عروض متاحة حاليًا'),
-        ),
-      );
-    }
-    
-    return SizedBox(
-      height: 180,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: offersProvider.offers.length,
-        itemBuilder: (context, index) {
-          final offer = offersProvider.offers[index];
-          return OfferItem(product: offer);
-        },
-      ),
-    );
-  }
-  
-  Widget _buildCategories() {
-    final categoriesProvider = context.watch<CategoryProvider>();
-    
-    if (categoriesProvider.isLoading) {
-      return SizedBox(
-        height: 100,
-        child: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(
-              Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        ),
-      );
-    }
-    
-    if (categoriesProvider.error.isNotEmpty) {
-      return SizedBox(
-        height: 100,
-        child: Center(
-          child: Text('خطأ: ${categoriesProvider.error}'),
-        ),
-      );
-    }
-    
-    if (categoriesProvider.categories.isEmpty) {
-      return const SizedBox(
-        height: 100,
-        child: Center(
-          child: Text('لا توجد فئات متاحة'),
-        ),
-      );
-    }
-    
-    return SizedBox(
-      height: 100,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: categoriesProvider.categories.length,
-        itemBuilder: (context, index) {
-          final category = categoriesProvider.categories[index];
-          return CategoryItem(
-            category: category,
-            icon: _getCategoryIcon(category.icon),
-          );
-        },
-      ),
-    );
-  }
-  
+
+  /// دالة لإرجاع الأيقونة بناءً على اسم الفئة
   IconData _getCategoryIcon(String iconName) {
-    // تحويل اسم الأيقونة إلى الأيقونة المناسبة
     switch (iconName) {
       case 'rice':
         return Icons.agriculture;
@@ -353,32 +259,138 @@ class _HomePageContentState extends State<HomePageContent> {
         return Icons.category;
     }
   }
-  
-  Widget _buildCenters() {
-    final centersProvider = context.watch<CenterProvider>();
-    
-    if (centersProvider.isLoading) {
-      return Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(
-            Theme.of(context).colorScheme.primary,
+
+  Widget _buildCategories() {
+    final catProvider = context.watch<CategoryProvider>();
+
+    if (catProvider.isLoading) {
+      return SizedBox(
+        height: 100,
+        child: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation(AppColors.accent),
           ),
         ),
       );
     }
-    
-    if (centersProvider.error.isNotEmpty) {
+    if (catProvider.error.isNotEmpty) {
+      return SizedBox(
+        height: 100,
+        child: Center(child: Text('خطأ: ${catProvider.error}')),
+      );
+    }
+    if (catProvider.categories.isEmpty) {
+      return const SizedBox(
+        height: 100,
+        child: Center(child: Text('لا توجد فئات متاحة')),
+      );
+    }
+
+    return SizedBox(
+      height: 100,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: catProvider.categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final Category cat = catProvider.categories[index];
+         final icon = _getCategoryIcon(cat.categoryName);
+
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.accent.withOpacity(0.2),
+                      AppColors.accent.withOpacity(0.05),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 6,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Icon(icon, color: AppColors.accent, size: 32),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                cat.categoryName,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildOffers() {
+    final offersProvider = context.watch<ProductProvider>();
+
+    if (offersProvider.isLoading) {
+      return SizedBox(
+        height: 180,
+        child: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation(AppColors.accent),
+          ),
+        ),
+      );
+    }
+    if (offersProvider.error.isNotEmpty) {
+      return SizedBox(
+        height: 180,
+        child: Center(child: Text('خطأ: ${offersProvider.error}')),
+      );
+    }
+    if (offersProvider.offers.isEmpty) {
+      return const SizedBox(
+        height: 180,
+        child: Center(child: Text('لا توجد عروض متاحة حالياً')),
+      );
+    }
+    return SizedBox(
+      height: 180,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: offersProvider.offers.length,
+        itemBuilder: (context, index) =>
+            OfferItem(product: offersProvider.offers[index]),
+      ),
+    );
+  }
+
+  Widget _buildSupermarkets() {
+    final marketProvider = context.watch<SuperMarketProvider>();
+
+    if (marketProvider.isLoading) {
       return Center(
-        child: Text('خطأ: ${centersProvider.error}'),
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation(AppColors.accent),
+        ),
       );
     }
-    
-    if (centersProvider.centers.isEmpty) {
-      return const Center(
-        child: Text('لا توجد مراكز تجارية متاحة'),
-      );
+    if (marketProvider.error.isNotEmpty) {
+      return Center(child: Text('خطأ: ${marketProvider.error}'));
     }
-    
+    if (marketProvider.supermarkets.isEmpty) {
+      return const Center(child: Text('لا توجد سوبرماركتات متاحة حالياً'));
+    }
+   
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -388,11 +400,56 @@ class _HomePageContentState extends State<HomePageContent> {
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
-      itemCount: centersProvider.centers.length,
-      itemBuilder: (context, index) {
-        final center = centersProvider.centers[index];
-        return ShoppingCenterItem(center: center);
-      },
+      itemCount: marketProvider.supermarkets.length,
+      itemBuilder: (context, index) =>
+          _buildSuperMarketCard(marketProvider.supermarkets[index]),
     );
   }
-}
+
+  Widget _buildSuperMarketCard(SuperMarket market) {
+    return InkWell(
+      onTap: () {
+        // عند الضغط، ننقل لصفحة المنتجات الخاصة بالمركز
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ShoppingCentersScreen(),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.shade200,
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            )
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundImage: NetworkImage(market.imageUrl),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              market.supermarketName,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Text(
+              market.location,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
+  } }

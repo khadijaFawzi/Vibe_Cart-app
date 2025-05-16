@@ -1,6 +1,6 @@
 // lib/widgets/offer_item.dart
 import 'package:flutter/material.dart';
-import 'package:vibe_cart/models/product_model.dart';
+import 'package:vibe_cart/models/product_supermarket_model.dart';
 import 'package:vibe_cart/screens/product_details_screen.dart';
 import 'package:vibe_cart/utils/theme.dart';
 

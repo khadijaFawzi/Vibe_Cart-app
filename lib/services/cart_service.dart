@@ -2,7 +2,7 @@
 
  
 
-import 'package:vibe_cart/models/product_model.dart';
+import 'package:vibe_cart/models/product_supermarket_model.dart';
 
 class CartItem {
   final Product product;

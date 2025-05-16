@@ -56,7 +56,7 @@ class CategoryItem extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              category.name,
+              category.categoryName,
               style: const TextStyle(fontSize: 12),
               textAlign: TextAlign.center,
             ),

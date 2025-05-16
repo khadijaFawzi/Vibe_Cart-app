@@ -1,18 +1,20 @@
-import 'package:flutter/material.dart';
+// lib/screens/center_products_screen.dart
 
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:vibe_cart/models/category_model.dart';
+import 'package:vibe_cart/api/category_provider.dart';
 import 'package:vibe_cart/models/center_model.dart';
-import 'package:vibe_cart/models/product_model.dart';
-import 'package:vibe_cart/screens/category_in_center_screen.dart';
-import 'package:vibe_cart/screens/product_details_screen.dart';
+import 'package:vibe_cart/models/product_supermarket_model.dart';
+import 'package:vibe_cart/provider/productt_provider.dart';
 import 'package:vibe_cart/services/provider_manager.dart';
 import 'package:vibe_cart/utils/theme.dart';
- 
+import 'package:vibe_cart/models/category_model.dart';
+
+import 'package:vibe_cart/screens/category_in_center_screen.dart';
+import 'package:vibe_cart/screens/product_details_screen.dart';
 
 class CenterProductsScreen extends StatefulWidget {
   final ShoppingCenter center;
-  
   const CenterProductsScreen({
     super.key,
     required this.center,
@@ -22,25 +24,26 @@ class CenterProductsScreen extends StatefulWidget {
   State<CenterProductsScreen> createState() => _CenterProductsScreenState();
 }
 
-class _CenterProductsScreenState extends State<CenterProductsScreen> with SingleTickerProviderStateMixin {
+class _CenterProductsScreenState extends State<CenterProductsScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isLoading = true;
   String _error = '';
-  List<Product> _products = [];
+  List<Product> _centerProducts = [];
   List<Category> _categories = [];
-  
+
   @override
   void initState() {
     super.initState();
     _loadData();
   }
-  
+
   Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
       _error = '';
     });
-    
+
     try {
       // جلب الفئات
       final categoryProvider = context.read<CategoryProvider>();
@@ -48,20 +51,24 @@ class _CenterProductsScreenState extends State<CenterProductsScreen> with Single
         await categoryProvider.loadCategories();
       }
       _categories = categoryProvider.categories;
-      
+
       // إعداد مراقب التبويبات
       _tabController = TabController(
         length: _categories.length,
         vsync: this,
       );
-      
-      // جلب منتجات المركز
-      final products = await context
-          .read<ProductProvider>()
-          .getCenterProducts(widget.center.id);
-      
+
+      // جلب وتنقية منتجات المركز بدون تكرار حسب الباركود
+      // final prodProv = context.read<ProductProvider>();
+      // if (prodProv.products.isEmpty) {
+      //   await prodProv.loadProducts();
+      // }
+      // final unique = prodProv.uniqueProducts;
+      // _centerProducts = unique
+      //     .where((p) => p.supermarket == widget.center.name)
+      //     .toList();
+
       setState(() {
-        _products = products;
         _isLoading = false;
       });
     } catch (e) {
@@ -71,7 +78,7 @@ class _CenterProductsScreenState extends State<CenterProductsScreen> with Single
       });
     }
   }
-  
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -85,58 +92,68 @@ class _CenterProductsScreenState extends State<CenterProductsScreen> with Single
       child: Scaffold(
         appBar: AppBar(
           title: Text(widget.center.name),
-          bottom: _isLoading || _error.isNotEmpty
-              ? null
-              : TabBar(
+          backgroundColor: AppColors.accent,
+          bottom: !_isLoading && _error.isEmpty
+              ? TabBar(
                   controller: _tabController,
                   isScrollable: true,
                   labelColor: AppColors.accent,
                   unselectedLabelColor: Colors.grey,
                   indicatorColor: AppColors.accent,
-                  tabs: _categories.map((category) => Tab(text: category.name)).toList(),
-                ),
+                  tabs: _categories
+                      .map((cat) => Tab(text: cat.categoryName))
+                      .toList(),
+                )
+              : null,
         ),
         body: _isLoading
             ? const Center(
                 child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
+                  valueColor:
+                      AlwaysStoppedAnimation<Color>(AppColors.accent),
                 ),
               )
             : _error.isNotEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: Colors.red,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'حدث خطأ: $_error',
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadData,
-                          child: const Text('إعادة المحاولة'),
-                        ),
-                      ],
-                    ),
-                  )
+                ? _buildErrorState()
                 : TabBarView(
                     controller: _tabController,
-                    children: _categories.map((category) => _buildCategoryTab(category)).toList(),
+                    children:
+                        _categories.map((cat) => _buildCategoryTab(cat)).toList(),
                   ),
       ),
     );
   }
-  
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.error_outline,
+            size: 48,
+            color: Colors.red,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'حدث خطأ: $_error',
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _loadData,
+            child: const Text('إعادة المحاولة'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCategoryTab(Category category) {
-    // تصفية المنتجات حسب الفئة
-    final categoryProducts = _products.where((product) => product.categoryId == category.id).toList();
-    
+    final categoryProducts = _centerProducts
+        .where((product) => product.categoryId == category.id)
+        .toList();
+
     if (categoryProducts.isEmpty) {
       return Center(
         child: Column(
@@ -149,10 +166,8 @@ class _CenterProductsScreenState extends State<CenterProductsScreen> with Single
             ),
             const SizedBox(height: 16),
             Text(
-              'لا توجد منتجات في فئة ${category.name}',
-              style: const TextStyle(
-                color: Colors.grey,
-              ),
+              'لا توجد منتجات في فئة ${category.categoryName}',
+              style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
@@ -173,7 +188,7 @@ class _CenterProductsScreenState extends State<CenterProductsScreen> with Single
         ),
       );
     }
-    
+
     return RefreshIndicator(
       onRefresh: _loadData,
       child: GridView.builder(
@@ -192,20 +207,20 @@ class _CenterProductsScreenState extends State<CenterProductsScreen> with Single
       ),
     );
   }
-  
+
   Widget _buildProductItem(BuildContext context, Product product) {
-    final cartProvider = context.watch<CartProvider>();
-    final favoritesProvider = context.watch<FavoritesProvider>();
-    
-    final isInCart = cartProvider.isInCart(product.id);
-    final isInFavorites = favoritesProvider.isInFavorites(product.id);
-    
+    final cartProv = context.watch<CartProvider>();
+    final favProv = context.watch<FavoritesProvider>();
+
+    final isInCart = cartProv.isInCart(product.id);
+    final isInFav = favProv.isInFavorites(product.id);
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ProductDetailsScreen(product: product),
+            builder: (_) => ProductDetailsScreen(product: product),
           ),
         );
       },
@@ -217,165 +232,177 @@ class _CenterProductsScreenState extends State<CenterProductsScreen> with Single
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // صورة المنتج
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
-                  ),
-                  child: SizedBox(
-                    height: 120,
-                    width: double.infinity,
-                    child: product.imageUrl.isNotEmpty
-                        ? Image.network(
-                            product.imageUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Center(
-                                child: Icon(
-                                  Icons.local_grocery_store,
-                                  size: 40,
-                                  color: AppColors.accent,
-                                ),
-                              );
-                            },
-                          )
-                        : const Center(
-                            child: Icon(
-                              Icons.local_grocery_store,
-                              size: 40,
-                              color: AppColors.accent,
-                            ),
-                          ),
-                  ),
-                ),
-                if (product.isOffer)
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'خصم ${product.discountPercentage?.toStringAsFixed(0)}%',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  child: GestureDetector(
-                    onTap: () {
-                      if (isInFavorites) {
-                        favoritesProvider.removeFromFavorites(product.id);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('تم إزالة المنتج من المفضلة')),
-                        );
-                      } else {
-                        favoritesProvider.addToFavorites(product);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('تم إضافة المنتج إلى المفضلة')),
-                        );
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
+            _buildProductImage(context, product, favProv),
+            _buildProductInfo(product, isInCart, cartProv),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProductImage(
+      BuildContext context, Product product, FavoritesProvider favProv) {
+    return Stack(
+      children: [
+        ClipRRect(
+          borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(12)),
+          child: SizedBox(
+            height: 120,
+            width: double.infinity,
+            child: product.imageUrl.isNotEmpty
+                ? Image.network(
+                    product.imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Center(
                       child: Icon(
-                        isInFavorites ? Icons.favorite : Icons.favorite_border,
-                        color: isInFavorites ? Colors.red : Colors.grey,
-                        size: 20,
+                        Icons.local_grocery_store,
+                        size: 40,
+                        color: AppColors.accent,
                       ),
+                    ),
+                  )
+                : const Center(
+                    child: Icon(
+                      Icons.local_grocery_store,
+                      size: 40,
+                      color: AppColors.accent,
                     ),
                   ),
+          ),
+        ),
+        if (product.isOffer)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'خصم ${product.discountPercentage?.toStringAsFixed(0)}%',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
                 ),
-              ],
+              ),
             ),
-            // تفاصيل المنتج
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    product.isOffer
-                        ? Row(
-                            children: [
-                              Text(
-                                '${product.discountedPrice.toStringAsFixed(0)} ريال',
-                                style: const TextStyle(
-                                  color: AppColors.accent,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                product.price.toStringAsFixed(0),
-                                style: const TextStyle(
-                                  color: Colors.grey,
-                                  decoration: TextDecoration.lineThrough,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
-                          )
-                        : Text(
-                            '${product.price.toStringAsFixed(0)} ريال',
-                            style: const TextStyle(
-                              color: AppColors.accent,
-                              fontWeight: FontWeight.bold,
-                            ),
+          ),
+        Positioned(
+          top: 8,
+          left: 8,
+          child: GestureDetector(
+            onTap: () => _toggleFavorite(product),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                favProv.isInFavorites(product.id)
+                    ? Icons.favorite
+                    : Icons.favorite_border,
+                color: favProv.isInFavorites(product.id)
+                    ? Colors.red
+                    : Colors.grey,
+                size: 20,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProductInfo(
+      Product product, bool isInCart, CartProvider cartProv) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              product.name,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 4),
+            if (product.isOffer) _buildOfferPrice(product) else _buildPrice(product),
+            const Spacer(),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: isInCart
+                    ? null
+                    : () {
+                        cartProv.addToCart(product);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('تم إضافة المنتج إلى العربة'),
                           ),
-                    const Spacer(),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isInCart
-                            ? null
-                            : () {
-                                cartProvider.addToCart(product);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('تم إضافة المنتج إلى العربة'),
-                                  ),
-                                );
-                              },
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          textStyle: const TextStyle(fontSize: 12),
-                        ),
-                        child: Text(isInCart ? 'في العربة' : 'أضف للعربة'),
-                      ),
-                    ),
-                  ],
+                        );
+                      },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  textStyle: const TextStyle(fontSize: 12),
                 ),
+                child: Text(isInCart ? 'في العربة' : 'أضف للعربة'),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildPrice(Product product) => Text(
+        '${product.price.toStringAsFixed(0)} ريال',
+        style: const TextStyle(
+          color: AppColors.accent,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+
+  Widget _buildOfferPrice(Product product) => Row(
+        children: [
+          Text(
+            '${product.discountedPrice.toStringAsFixed(0)} ريال',
+            style: const TextStyle(
+              color: AppColors.accent,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            product.price.toStringAsFixed(0),
+            style: const TextStyle(
+              color: Colors.grey,
+              decoration: TextDecoration.lineThrough,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      );
+
+  void _toggleFavorite(Product product) {
+    final favProv = context.read<FavoritesProvider>();
+    if (favProv.isInFavorites(product.id)) {
+      favProv.removeFromFavorites(product.id);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('تم إزالة من المفضلة')));
+    } else {
+      favProv.addToFavorites(product);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('تم إضافة إلى المفضلة')));
+    }
   }
 }

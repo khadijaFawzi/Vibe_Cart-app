@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vibe_cart/models/category_model.dart';
 import 'package:vibe_cart/models/center_model.dart';
-import 'package:vibe_cart/models/product_model.dart';
+import 'package:vibe_cart/models/product_supermarket_model.dart';
+
 import 'package:vibe_cart/screens/product_details_screen.dart';
 import 'package:vibe_cart/services/provider_manager.dart';
 import 'package:vibe_cart/utils/theme.dart';
@@ -63,7 +64,7 @@ class _CategoryInCenterScreenState extends State<CategoryInCenterScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: Text('${widget.category.name} - ${widget.center.name}'),
+          title: Text('${widget.category.categoryName} - ${widget.center.name}'),
         ),
         body: _isLoading
             ? const Center(
@@ -106,7 +107,7 @@ class _CategoryInCenterScreenState extends State<CategoryInCenterScreen> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'لا توجد منتجات في فئة ${widget.category.name} في ${widget.center.name}',
+                              'لا توجد منتجات في فئة ${widget.category.categoryName} في ${widget.center.name}',
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 fontSize: 16,

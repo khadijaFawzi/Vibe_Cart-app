@@ -1,14 +1,14 @@
 // lib/screens/shopping_centers_screen.dart
-import 'package:flutter/material.dart';
 
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:vibe_cart/models/center_model.dart';
+import 'package:vibe_cart/models/supermarket.dart';
 import 'package:vibe_cart/screens/center_products_screen.dart';
-import 'package:vibe_cart/services/provider_manager.dart';
+import 'package:vibe_cart/provider/supermarket_provider.dart';
 import 'package:vibe_cart/utils/theme.dart';
- 
+
 class ShoppingCentersScreen extends StatefulWidget {
-  const ShoppingCentersScreen({super.key});
+  const ShoppingCentersScreen({Key? key}) : super(key: key);
 
   @override
   State<ShoppingCentersScreen> createState() => _ShoppingCentersScreenState();
@@ -18,88 +18,80 @@ class _ShoppingCentersScreenState extends State<ShoppingCentersScreen> {
   @override
   void initState() {
     super.initState();
-    // جلب المراكز التجارية عند بدء الشاشة
+    // جلب السوبرماركتات عند بدء الشاشة
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CenterProvider>().loadCenters();
+      context.read<SuperMarketProvider>().loadSupermarkets();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final centersProvider = context.watch<CenterProvider>();
-    
+    final marketProv = context.watch<SuperMarketProvider>();
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('المراكز التجارية'),
-        ),
-        body: centersProvider.isLoading
-            ? const Center(
+        appBar: AppBar(title: const Text('المراكز التجارية')),
+        body: RefreshIndicator(
+          onRefresh: () => context.read<SuperMarketProvider>().loadSupermarkets(),
+          child: Builder(builder: (_) {
+            if (marketProv.isLoading) {
+              return const Center(
                 child: CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
                 ),
-              )
-            : centersProvider.error.isNotEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: Colors.red,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'حدث خطأ: ${centersProvider.error}',
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () {
-                            centersProvider.loadCenters();
-                          },
-                          child: const Text('إعادة المحاولة'),
-                        ),
-                      ],
+              );
+            } else if (marketProv.error.isNotEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text('حدث خطأ: ${marketProv.error}', textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => marketProv.loadSupermarkets(),
+                      child: const Text('إعادة المحاولة'),
                     ),
-                  )
-                : centersProvider.centers.isEmpty
-                    ? const Center(
-                        child: Text('لا توجد مراكز تجارية متاحة'),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: centersProvider.centers.length,
-                        itemBuilder: (context, index) {
-                          final center = centersProvider.centers[index];
-                          return _buildCenterItem(context, center);
-                        },
-                      ),
+                  ],
+                ),
+              );
+            } else if (marketProv.supermarkets.isEmpty) {
+              return const Center(child: Text('لا توجد مراكز تجارية متاحة'));
+            }
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: marketProv.supermarkets.length,
+              itemBuilder: (context, index) {
+                final market = marketProv.supermarkets[index];
+                return _buildMarketCard(context, market);
+              },
+            );
+          }),
+        ),
       ),
     );
   }
-  
-  Widget _buildCenterItem(BuildContext context, ShoppingCenter center) {
+
+  Widget _buildMarketCard(BuildContext context, SuperMarket market) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 2,
       child: InkWell(
+        borderRadius: BorderRadius.circular(16),
         onTap: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => CenterProductsScreen(center: center),
+              builder: (_) => CenterProductsScreen(center: market),
             ),
           );
         },
-        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
               // صورة المركز
@@ -110,30 +102,17 @@ class _ShoppingCentersScreenState extends State<ShoppingCentersScreen> {
                   color: AppColors.secondary,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: center.logoUrl.isNotEmpty
+                child: market.profileImage.isNotEmpty
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: Image.network(
-                          center.logoUrl,
+                          market.imageUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Center(
-                              child: Icon(
-                                Icons.store,
-                                size: 40,
-                                color: AppColors.accent,
-                              ),
-                            );
-                          },
+                          errorBuilder: (_, __, ___) =>
+                              const Center(child: Icon(Icons.store, size: 40, color: AppColors.accent)),
                         ),
                       )
-                    : const Center(
-                        child: Icon(
-                          Icons.store,
-                          size: 40,
-                          color: AppColors.accent,
-                        ),
-                      ),
+                    : const Center(child: Icon(Icons.store, size: 40, color: AppColors.accent)),
               ),
               const SizedBox(width: 16),
               // معلومات المركز
@@ -141,56 +120,36 @@ class _ShoppingCentersScreenState extends State<ShoppingCentersScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      center.name,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Text(market.supermarketName,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on, size: 16, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            market.location,
+                            style: const TextStyle(color: Colors.grey, fontSize: 14),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
-                    if (center.address != null)
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on, size: 16, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              center.address!,
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 14,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    const SizedBox(height: 4),
-                    if (center.phoneNumber != null)
-                      Row(
-                        children: [
-                          const Icon(Icons.phone, size: 16, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(
-                            center.phoneNumber!,
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
+                    Row(
+                      children: [
+                        const Icon(Icons.phone, size: 16, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text(market.contactNumber,
+                            style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                      ],
+                    ),
                   ],
                 ),
               ),
-              // سهم للانتقال
-              const Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: Colors.grey,
-              ),
+              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
             ],
           ),
         ),

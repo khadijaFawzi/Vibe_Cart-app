@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:vibe_cart/models/category_model.dart';
 import 'package:vibe_cart/models/center_model.dart';
-import 'package:vibe_cart/models/product_model.dart';
-import 'package:vibe_cart/services/api_service.dart';
+import 'package:vibe_cart/models/product_supermarket_model.dart';
+import 'package:vibe_cart/services/api_service_old.dart';
 import 'package:vibe_cart/services/cart_service.dart';
 import 'package:vibe_cart/services/favorites_service.dart';
 
@@ -122,33 +122,6 @@ class CenterProvider extends ChangeNotifier {
   }
 }
 
-class CategoryProvider extends ChangeNotifier {
-  final ApiService _apiService = ApiService();
-  List<Category> _categories = [];
-  bool _isLoading = false;
-  String _error = '';
-
-  List<Category> get categories => _categories;
-  bool get isLoading => _isLoading;
-  String get error => _error;
-
-  Future<void> loadCategories() async {
-    _isLoading = true;
-    _error = '';
-    notifyListeners();
-
-    try {
-      _categories = await _apiService.getCategories();
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-}
 
 class CartProvider extends ChangeNotifier {
   final CartService _cartService = CartService();

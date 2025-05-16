@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:vibe_cart/api/category_provider.dart';
 import 'package:vibe_cart/provider/auth_provider.dart';
+import 'package:vibe_cart/provider/supermarket_provider.dart';
 
 import 'package:vibe_cart/screens/login_screen.dart';
 import 'package:vibe_cart/screens/home_screen.dart';
 
 import 'package:vibe_cart/services/language_provider.dart';
 import 'package:vibe_cart/services/provider_manager.dart';
+
 import 'package:vibe_cart/services/theme_provider.dart';
 import 'package:vibe_cart/utils/theme.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -40,6 +43,8 @@ void main() async {
         ChangeNotifierProvider(create: (_) => CenterProvider()),
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => SuperMarketProvider()),
+
       ],
       child: const MyApp(),
     ),
