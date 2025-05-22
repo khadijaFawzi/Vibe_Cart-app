@@ -16,7 +16,7 @@ class SuperMarket {
     this.description,
     this.bankAccount,
     required this.profileImage,
-    this.user,
+    this.user, required String imageUrl,
   });
 
   /// يبني رابط الصورة الكامل استنادًا إلى اسم الملف
@@ -32,7 +32,7 @@ class SuperMarket {
       description: json['description'] as String?,
       bankAccount: json['bank_account'] as String?,
       profileImage: (json['profile_image'] as String?) ?? '',
-      user: json['user'],
+      user: json['user'], imageUrl: '',
     );
   }
 }

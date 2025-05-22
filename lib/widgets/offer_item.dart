@@ -1,26 +1,27 @@
 // lib/widgets/offer_item.dart
 import 'package:flutter/material.dart';
-import 'package:vibe_cart/models/product_supermarket_model.dart';
+import 'package:vibe_cart/models/offer.dart';
 import 'package:vibe_cart/screens/product_details_screen.dart';
 import 'package:vibe_cart/utils/theme.dart';
-
- 
 class OfferItem extends StatelessWidget {
-  final Product product;
-  
+  final Offer offer;
+
   const OfferItem({
     super.key,
-    required this.product,
+    required this.offer,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
+        // Navigate to product details, passing necessary data
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ProductDetailsScreen(product: product),
+            builder: (context) => ProductDetailsScreen(
+              product: /* map offer back to Product or update details screen to accept Offer */,
+            ),
           ),
         );
       },
@@ -51,13 +52,13 @@ class OfferItem extends StatelessWidget {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: product.imageUrl.isNotEmpty
+                child: offer.productImage != null && offer.productImage!.isNotEmpty
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                         child: Image.asset(
-          'assets/images/google_logo.png',
+                        child: Image.network(
+                          offer.productImage!,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
+                          errorBuilder: (_, __, ___) {
                             return const Icon(
                               Icons.local_grocery_store,
                               size: 40,
@@ -80,41 +81,45 @@ class OfferItem extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      product.name,
+                      offer.productName ?? 'منتج',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'خصم ${product.discountPercentage?.toStringAsFixed(0)}%',
-                      style: const TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
+                    if (offer.supermarketName != null)
+                      Text(
+                        offer.supermarketName!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black54,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Text(
-                          '${product.discountedPrice.toStringAsFixed(0)} ريال',
+                    if (offer.description != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          offer.description!,
+                          style: const TextStyle(fontSize: 12),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    if (offer.discountPercentage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '${offer.discountPercentage!.toStringAsFixed(0)}% خصم',
                           style: const TextStyle(
-                            color: AppColors.accent,
+                            color: Colors.red,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${product.price.toStringAsFixed(0)} ريال',
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            decoration: TextDecoration.lineThrough,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
                   ],
                 ),
               ),

@@ -1,18 +1,17 @@
 // lib/widgets/shopping_center_item.dart
+
 import 'package:flutter/material.dart';
-import 'package:vibe_cart/models/center_model.dart';
-import 'package:vibe_cart/screens/center_products_screen.dart';
+import 'package:vibe_cart/models/supermarket.dart';                // تغير الاستيراد
+import 'package:vibe_cart/screens/center_products_screen.dart';     // يحتوي على SupermarketProductsScreen
 import 'package:vibe_cart/utils/theme.dart';
 
- 
-
 class ShoppingCenterItem extends StatelessWidget {
-  final ShoppingCenter center;
+  final SuperMarket supermarket;                               // تغيير النوع والاسم
   
   const ShoppingCenterItem({
-    super.key,
-    required this.center,
-  });
+    Key? key,
+    required this.supermarket,                                 // تغيير المعامل
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +20,9 @@ class ShoppingCenterItem extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => CenterProductsScreen(center: center),
+            builder: (_) => SupermarketProductsScreen(
+              supermarket: supermarket,                          // تمرير المعامل الصحيح
+            ),
           ),
         );
       },
@@ -48,7 +49,7 @@ class ShoppingCenterItem extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              center.name,
+              supermarket.supermarketName,                     // حقل الاسم
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,

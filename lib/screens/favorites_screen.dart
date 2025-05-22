@@ -1,246 +1,197 @@
 // lib/screens/favorites_screen.dart
+
 import 'package:flutter/material.dart';
-
 import 'package:provider/provider.dart';
-import 'package:vibe_cart/screens/product_details_screen.dart';
-import 'package:vibe_cart/services/provider_manager.dart';
-import 'package:vibe_cart/utils/theme.dart';
- 
 
-class FavoritesScreen extends StatelessWidget {
-  const FavoritesScreen({super.key});
+import 'package:vibe_cart/models/favorite_item.dart';
+import 'package:vibe_cart/models/cart_item.dart';
+import 'package:vibe_cart/models/cart_group.dart';
+import 'package:vibe_cart/provider/cart_provider.dart';
+import 'package:vibe_cart/provider/favorites_provider.dart';
+import 'package:vibe_cart/provider/product_provider.dart';
+import 'package:vibe_cart/screens/product_details_screen.dart';
+import 'package:vibe_cart/screens/checkout_screen.dart';
+import 'package:vibe_cart/utils/theme.dart';
+
+class FavoritesScreen extends StatefulWidget {
+  const FavoritesScreen({Key? key}) : super(key: key);
+
+  @override
+  State<FavoritesScreen> createState() => _FavoritesScreenState();
+}
+
+class _FavoritesScreenState extends State<FavoritesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // تحميل المفضلة عند فتح الشاشة
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<FavoritesProvider>().loadFavorites();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final favoritesProvider = context.watch<FavoritesProvider>();
-    
+    final favProv = context.watch<FavoritesProvider>();
+    final cartProv = context.watch<CartProvider>();
+    final prodProv = context.read<ProductProvider>();
+
+    if (favProv.isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (favProv.error.isNotEmpty) {
+      return Scaffold(
+        body: Center(child: Text('حدث خطأ: ${favProv.error}')),
+      );
+    }
+
+    final favorites = favProv.favorites;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('المفضلة'),
           actions: [
-            if (favoritesProvider.favoriteCount > 0)
+            if (favorites.isNotEmpty)
               IconButton(
-                icon: const Icon(Icons.delete),
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('مسح المفضلة'),
-                      content: const Text('هل أنت متأكد من رغبتك في مسح كل العناصر من المفضلة؟'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('إلغاء'),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            favoritesProvider.clearFavorites();
-                            Navigator.of(context).pop();
-                          },
-                          child: const Text('مسح'),
-                        ),
-                      ],
-                    ),
+                icon: const Icon(Icons.delete_sweep),
+                onPressed: () async {
+                  await favProv.clearFavorites();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('تم مسح المفضلة')),
                   );
                 },
               ),
           ],
         ),
-        body: favoritesProvider.favoriteCount == 0
-            ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.favorite_border,
-                      size: 80,
-                      color: Colors.grey,
-                    ),
-                    SizedBox(height: 16),
-                    Text(
-                      'قائمة المفضلة فارغة',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'أضف بعض المنتجات إلى المفضلة',
-                      style: TextStyle(
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              )
+        body: favorites.isEmpty
+            ? const _EmptyFavorites()
             : GridView.builder(
                 padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   childAspectRatio: 0.7,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                 ),
-                itemCount: favoritesProvider.favorites.length,
-                itemBuilder: (context, index) {
-                  final product = favoritesProvider.favorites[index];
-                  final cartProvider = context.watch<CartProvider>();
-                  final isInCart = cartProvider.isInCart(product.id);
-                  
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ProductDetailsScreen(product: product),
-                        ),
-                      );
-                    },
-                    child: Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // صورة المنتج
-                          ClipRRect(
-                            borderRadius: const BorderRadius.only(
-                              topLeft: Radius.circular(12),
-                              topRight: Radius.circular(12),
-                            ),
-                            child: SizedBox(
-                              height: 120,
-                              width: double.infinity,
-                              child: Stack(
-                                children: [
-                                  product.imageUrl.isNotEmpty
-                                      ? Image.network(
-                                          product.imageUrl,
-                                          fit: BoxFit.cover,
-                                          width: double.infinity,
-                                          height: double.infinity,
-                                          errorBuilder: (context, error, stackTrace) {
-                                            return const Center(
-                                              child: Icon(
-                                                Icons.local_grocery_store,
-                                                size: 40,
-                                                color: AppColors.accent,
-                                              ),
-                                            );
-                                          },
-                                        )
-                                      : const Center(
-                                          child: Icon(
-                                            Icons.local_grocery_store,
-                                            size: 40,
-                                            color: AppColors.accent,
-                                          ),
-                                        ),
-                                  Positioned(
-                                    top: 8,
-                                    left: 8,
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        favoritesProvider.removeFromFavorites(product.id);
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('تم إزالة المنتج من المفضلة'),
-                                          ),
-                                        );
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.all(4),
-                                        decoration: const BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(
-                                          Icons.favorite,
-                                          color: Colors.red,
-                                          size: 20,
-                                        ),
-                                      ),
-                                    ),
+                itemCount: favorites.length,
+                itemBuilder: (_, idx) {
+                  final item = favorites[idx];
+                  final inCart = cartProv.isInCart(item.productId);
+
+                  return Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () async {
+                              // جلب قائمة المنتجات للمركز نفسه
+                              final products = await prodProv
+                                  .getProductsBySupermarket(item.supermarketId);
+                              // البحث عن المنتج المطابق
+                              final product = products.firstWhere(
+                                (p) => p.id == item.productId,
+                                orElse: () => throw Exception(
+                                    'المنتج غير موجود في هذا المركز'),
+                              );
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ProductDetailsScreen(
+                                    product: product,
                                   ),
-                                ],
+                                ),
+                              );
+                            },
+                            child: Container(
+                              width: double.infinity,
+                              color: Colors.grey.shade200,
+                              child: const Icon(
+                                Icons.local_grocery_store,
+                                size: 40,
+                                color: AppColors.accent,
                               ),
                             ),
                           ),
-                          // تفاصيل المنتج
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  product.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.productName,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'متوفر في: ${item.supermarketName}',
+                                style: const TextStyle(
+                                  color: AppColors.accent,
+                                  fontSize: 12,
                                 ),
-                                const SizedBox(height: 4),
-                                product.isOffer
-                                    ? Row(
-                                        children: [
-                                          Text(
-                                            '${product.discountedPrice.toStringAsFixed(0)} ريال',
-                                            style: const TextStyle(
-                                              color: AppColors.accent,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            product.price.toStringAsFixed(0),
-                                            style: const TextStyle(
-                                              color: Colors.grey,
-                                              decoration: TextDecoration.lineThrough,
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                    : Text(
-                                        '${product.price.toStringAsFixed(0)} ريال',
-                                        style: const TextStyle(
-                                          color: AppColors.accent,
-                                          fontWeight: FontWeight.bold,
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.favorite,
+                                      color: Colors.red,
+                                    ),
+                                    onPressed: () async {
+                                      await favProv
+                                          .removeFavorite(item.productId);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              'تمت إزالة من المفضلة'),
                                         ),
-                                      ),
-                                const SizedBox(height: 8),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed: isInCart
+                                      );
+                                    },
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: inCart
                                         ? null
-                                        : () {
-                                            cartProvider.addToCart(product);
-                                            ScaffoldMessenger.of(context).showSnackBar(
+                                        : () async {
+                                            await cartProv.add(
+                                              item.productId,
+                                              item.supermarketId,
+                                              1,
+                                            );
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
                                               const SnackBar(
-                                                content: Text('تم إضافة المنتج إلى العربة'),
+                                                content: Text(
+                                                    'تمت إضافة إلى العربة'),
+                                                backgroundColor:
+                                                    Colors.green,
                                               ),
                                             );
                                           },
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(vertical: 8),
-                                      textStyle: const TextStyle(fontSize: 12),
-                                    ),
-                                    child: Text(isInCart ? 'في العربة' : 'أضف للعربة'),
+                                    child: Text(
+                                        inCart ? 'في العربة' : 'أضف للعربة'),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   );
                 },
@@ -248,4 +199,29 @@ class FavoritesScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _EmptyFavorites extends StatelessWidget {
+  const _EmptyFavorites();
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.favorite_border, size: 80, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                'لا توجد عناصر في المفضلة',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
 }

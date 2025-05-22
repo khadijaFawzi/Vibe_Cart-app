@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:vibe_cart/provider/OrderProvider.dart';
 import 'package:vibe_cart/utils/theme.dart';
 
 import '../provider/auth_provider.dart';
+
+import '../models/order.dart'; // أضف هذا
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -30,6 +33,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _addressController = TextEditingController(text: user?['address'] ?? '');
   }
 
+  // جلب الطلبات عند الدخول للصفحة
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    Provider.of<OrderProvider>(context, listen: false).fetchOrders();
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -43,8 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
-      // هنا ممكن تنفذ عملية تحديث في الباك اند لو حبيت، حسب تصميمك
-      // حالياً فقط نعرض رسالة
+      // هنا ممكن تنفذ عملية تحديث في الباك اند لو حبيت
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('تم تحديث البيانات محليًا')),
@@ -56,10 +65,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  String _translateOrderStatus(String status) {
+    switch (status) {
+      case 'pending': return 'قيد الانتظار';
+      case 'processing': return 'قيد التنفيذ';
+      case 'completed': return 'تم التسليم';
+      case 'canceled': return 'ملغى';
+      default: return status;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.userData;
+    final orderProvider = Provider.of<OrderProvider>(context);
+    final orders = orderProvider.orders;
 
     if (user == null) {
       return const Scaffold(
@@ -132,7 +153,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   label: 'البريد الإلكتروني',
                   controller: _emailController,
                   icon: Icons.email,
-                  readOnly: true, // غالبًا البريد ما يتعدل
+                  readOnly: true,
                   keyboardType: TextInputType.emailAddress,
                 ),
                 const SizedBox(height: 16),
@@ -166,6 +187,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: TextStyle(fontSize: 16),
                     ),
                   ),
+                // ------------- إضافة الطلبات تحت بيانات المستخدم -------------
+                const SizedBox(height: 32),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    "طلباتي",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  color: AppColors.secondary.withOpacity(0.1),
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: ListTile(
+                    leading: const Icon(Icons.shopping_cart_checkout, color: AppColors.primary),
+                    title: Text(
+                      'عدد الطلبات: ${orders.length}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                // قائمة الطلبات
+                ...orders.map((order) => Card(
+                  elevation: 2,
+                  child: ListTile(
+                    leading: const Icon(Icons.receipt_long, color: AppColors.secondary),
+                    title: Text('طلب رقم #${order.id}'),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('الحالة: ${_translateOrderStatus(order.status)}'),
+                        Text('الإجمالي: ${order.total.toStringAsFixed(2)} ر.س'),
+                        Text('تاريخ الطلب: ${order.createdAt ?? ''}'),
+                      ],
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    onTap: () {
+                      // تقدر تفتح صفحة تفاصيل الطلب إذا أضفتها
+                    },
+                  ),
+                )),
+                if (orders.isEmpty && !orderProvider.isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Center(child: Text('لا توجد طلبات حتى الآن')),
+                  ),
+                if (orderProvider.isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                // -----------------------------------------------------------
               ],
             ),
           ),
@@ -196,6 +273,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         fillColor: readOnly ? Colors.grey.shade100 : null,
       ),
       validator: validator,
-);
-}
+    );
+  }
 }

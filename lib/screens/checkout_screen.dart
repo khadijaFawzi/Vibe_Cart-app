@@ -1,13 +1,17 @@
-// lib/screens/checkout_screen.dart
 import 'package:flutter/material.dart';
-
 import 'package:provider/provider.dart';
-import 'package:vibe_cart/services/provider_manager.dart';
-import 'package:vibe_cart/utils/constants.dart';
-import 'package:vibe_cart/utils/theme.dart';
+import 'package:image_picker/image_picker.dart';
+
+import 'package:vibe_cart/models/cart_group.dart';
+import 'package:vibe_cart/provider/OrderProvider.dart';
+import 'package:vibe_cart/provider/cart_provider.dart';
+
+import 'package:vibe_cart/models/bank_account.dart';
 
 class CheckoutScreen extends StatefulWidget {
-  const CheckoutScreen({super.key});
+  final List<CartGroup> groups;
+
+  const CheckoutScreen({Key? key, required this.groups}) : super(key: key);
 
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
@@ -17,91 +21,92 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   int _selectedPaymentMethod = 0;
   final List<String> _paymentMethods = ['تحويل بنكي', 'الدفع عند الاستلام'];
 
-  bool _isConfirmed = false;
-  String? _selectedCenter;
+  BankAccount? _selectedBank;
+  List<BankAccount> _bankAccounts = [];
+  bool _banksLoading = false;
   String? _receiptImagePath;
+
+  // بيانات العنوان (ممكن تطويرها لاحقًا)
+  final TextEditingController _cityController = TextEditingController();
+  final TextEditingController _streetController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBankAccounts();
+  }
+
+  void _fetchBankAccounts() async {
+    setState(() => _banksLoading = true);
+    final supermarketId = widget.groups.first.supermarketId;
+    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
+    _bankAccounts = await orderProvider.apiService.getSupermarketBankAccounts(supermarketId);
+    setState(() => _banksLoading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final cartProvider = context.watch<CartProvider>();
-
-    if (cartProvider.cartItems.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('العربة فارغة')),
-        );
-        Navigator.pop(context);
-      });
-    }
+    final groups = widget.groups;
+    final total = groups.fold<double>(0, (sum, g) => sum + g.subtotal);
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('إتمام الطلب'),
+        appBar: AppBar(title: const Text('إتمام الطلب')),
+        body: Consumer<OrderProvider>(
+          builder: (context, orderProvider, _) {
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _buildSummary(groups, total),
+                const SizedBox(height: 24),
+                _buildPaymentMethods(),
+                if (_selectedPaymentMethod == 0) ...[
+                  const SizedBox(height: 16),
+                  _buildBankSelection(),
+                  if (_selectedBank != null) _buildReceiptUpload(),
+                ],
+                const SizedBox(height: 24),
+                _buildDeliveryAddress(),
+                const SizedBox(height: 24),
+                _buildOrderButton(total, orderProvider),
+              ],
+            );
+          },
         ),
-        body: _isConfirmed ? _buildPaymentConfirmation() : _buildCheckoutForm(cartProvider),
       ),
     );
   }
 
-  Widget _buildCheckoutForm(CartProvider cartProvider) {
+  Widget _buildSummary(List<CartGroup> groups, double total) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              const Text('ملخص الطلب', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              _buildCartSummary(cartProvider),
-              const SizedBox(height: 24),
-              _buildPaymentMethods(),
-              const SizedBox(height: 24),
-              _buildDeliveryAddress(),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
-        _buildBottomBar(cartProvider),
-      ],
-    );
-  }
-
-  Widget _buildCartSummary(CartProvider cartProvider) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
+        const Text('ملخص الطلب', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        ...groups.map((grp) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('المنتجات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 12),
-            ...cartProvider.cartItems.map((item) => Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Row(
-                children: [
-                  Expanded(flex: 3, child: Text(item.product.name)),
-                  Expanded(flex: 1, child: Text('${item.quantity} x', textAlign: TextAlign.center)),
-                  Expanded(flex: 2, child: Text('${item.product.discountedPrice.toStringAsFixed(0)} ريال')),
-                ],
-              ),
-            )),
-            const Divider(),
-            Row(
+            Text(grp.supermarket, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ...grp.items.map((item) => Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('المجموع', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text(
-                  '${cartProvider.totalPrice.toStringAsFixed(0)} ريال',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.accent),
-                ),
+                Text('${item.quantity} × ${item.productName}'),
+                Text('${item.total.toStringAsFixed(2)} ر.س'),
               ],
-            ),
+            )),
+            const Divider(),
+          ],
+        )),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('المجموع الكلي', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text('${total.toStringAsFixed(2)} ر.س', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
           ],
         ),
-      ),
+      ],
     );
   }
 
@@ -109,20 +114,65 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('طريقة الدفع', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Column(
-            children: List.generate(
-              _paymentMethods.length,
-              (index) => RadioListTile<int>(
-                title: Text(_paymentMethods[index]),
-                value: index,
-                groupValue: _selectedPaymentMethod,
-                onChanged: (value) => setState(() => _selectedPaymentMethod = value!),
-                activeColor: AppColors.accent,
-              ),
+        const Text('اختر طريقة الدفع', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        ..._paymentMethods.asMap().entries.map((entry) => RadioListTile<int>(
+          value: entry.key,
+          groupValue: _selectedPaymentMethod,
+          title: Text(entry.value),
+          onChanged: (val) => setState(() => _selectedPaymentMethod = val!),
+        )),
+      ],
+    );
+  }
+
+  Widget _buildBankSelection() {
+    if (_banksLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_bankAccounts.isEmpty) {
+      return const Text('لا توجد حسابات بنكية لهذا السوبرماركت.');
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('اختر الحساب البنكي', style: TextStyle(fontWeight: FontWeight.bold)),
+        ..._bankAccounts.map((bank) => RadioListTile<BankAccount>(
+          value: bank,
+          groupValue: _selectedBank,
+          title: Text(bank.bankName),
+          subtitle: Text('رقم الحساب: ${bank.accountNumber}'),
+          onChanged: (val) => setState(() => _selectedBank = val),
+        )),
+      ],
+    );
+  }
+
+  Widget _buildReceiptUpload() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('رفع سند التحويل:', style: TextStyle(fontWeight: FontWeight.bold)),
+        InkWell(
+          onTap: _pickReceiptImage,
+          child: Container(
+            height: 80,
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Center(
+              child: _receiptImagePath == null
+                  ? const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.upload_file, size: 32, color: Colors.grey),
+                        SizedBox(height: 8),
+                        Text('اضغط لرفع سند التحويل'),
+                      ],
+                    )
+                  : const Text('تم اختيار صورة', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
             ),
           ),
         ),
@@ -136,232 +186,101 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       children: [
         const Text('عنوان التوصيل', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                _AddressField(label: 'المدينة'),
-                SizedBox(height: 16),
-                _AddressField(label: 'الشارع'),
-                SizedBox(height: 16),
-                _AddressField(label: 'رقم الهاتف', keyboardType: TextInputType.phone),
-                SizedBox(height: 16),
-                _AddressField(label: 'ملاحظات إضافية', maxLines: 3),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBottomBar(CartProvider cartProvider) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('المجموع', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text(
-                '${cartProvider.totalPrice.toStringAsFixed(0)} ريال',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.accent),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => setState(() => _isConfirmed = true),
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-              child: const Text('تأكيد الطلب', style: TextStyle(fontSize: 16)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaymentConfirmation() {
-    final banks = AppConstants.bankAccounts.keys.toList();
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Icon(Icons.check_circle, color: Colors.green, size: 64),
-        const SizedBox(height: 16),
-        const Text('تم تأكيد طلبك بنجاح', textAlign: TextAlign.center, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        TextFormField(controller: _cityController, decoration: const InputDecoration(labelText: 'المدينة')),
         const SizedBox(height: 8),
-        const Text('يرجى إكمال عملية الدفع لتأكيد الطلب نهائياً', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
-        const SizedBox(height: 32),
-        const Text('بيانات التحويل البنكي', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('اختر المركز التجاري للتحويل:', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  ),
-                  value: _selectedCenter,
-                  hint: const Text('اختر المركز'),
-                  items: banks.map((bank) => DropdownMenuItem(value: bank, child: Text(bank))).toList(),
-                  onChanged: (value) => setState(() => _selectedCenter = value),
-                ),
-                const SizedBox(height: 16),
-                if (_selectedCenter != null) ...[
-                  const Text('رقم الحساب:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          AppConstants.bankAccounts[_selectedCenter]!,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.copy),
-                          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('تم نسخ رقم الحساب')),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                const Text('رفع سند التحويل:', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: () => setState(() => _receiptImagePath = 'تم اختيار صورة'),
-                  child: Container(
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Center(
-                      child: _receiptImagePath == null
-                          ? const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.upload_file, size: 32, color: Colors.grey),
-                                SizedBox(height: 8),
-                                Text('اضغط لرفع سند التحويل'),
-                              ],
-                            )
-                          : const Text('تم اختيار صورة', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 32),
-        ElevatedButton(
-          onPressed: _selectedCenter != null && _receiptImagePath != null ? _completeOrder : null,
-          style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16), backgroundColor: Colors.green),
-          child: const Text('تأكيد التحويل وإتمام الطلب', style: TextStyle(fontSize: 16)),
-        ),
-        const SizedBox(height: 16),
-        OutlinedButton(
-          onPressed: _cancelOrderDialog,
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            foregroundColor: Colors.red,
-            side: const BorderSide(color: Colors.red),
-          ),
-          child: const Text('إلغاء الطلب', style: TextStyle(fontSize: 16)),
-        ),
+        TextFormField(controller: _streetController, decoration: const InputDecoration(labelText: 'الشارع')),
+        const SizedBox(height: 8),
+        TextFormField(controller: _phoneController, decoration: const InputDecoration(labelText: 'رقم الهاتف'), keyboardType: TextInputType.phone),
+        const SizedBox(height: 8),
+        TextFormField(controller: _notesController, decoration: const InputDecoration(labelText: 'ملاحظات إضافية'), maxLines: 2),
       ],
     );
   }
 
-  void _completeOrder() {
-    final cartProvider = Provider.of<CartProvider>(context, listen: false);
+  Widget _buildOrderButton(double total, OrderProvider orderProvider) {
+    return ElevatedButton(
+      onPressed: orderProvider.isLoading
+          ? null
+          : () async {
+              final supermarketId = widget.groups.first.supermarketId;
+              final deliveryFee = 0.0; // أضف قيمة التوصيل حسب النظام عندك
+              final products = widget.groups.first.items.map((item) => {
+  'product_id': item.productId,
+  'quantity': item.quantity,
+  'price': item.price, // ← الحل هنا
+}).toList();
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
+
+              // تحقق من صحة البيانات
+              if (_selectedPaymentMethod == 0 && (_selectedBank == null || _receiptImagePath == null)) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('اختر الحساب البنكي وارفع سند التحويل')));
+                return;
+              }
+              if (_cityController.text.isEmpty || _streetController.text.isEmpty || _phoneController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يرجى إدخال عنوان التوصيل ورقم الهاتف')));
+                return;
+              }
+
+              // أرسل الطلب
+              final orderId = await orderProvider.createOrder(
+                supermarketId: supermarketId,
+                total: total,
+                deliveryFee: deliveryFee,
+                products: products,
+              );
+
+              if (orderId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('حدث خطأ أثناء تنفيذ الطلب')));
+                return;
+              }
+
+              // في حالة الدفع البنكي: ارفع سند التحويل
+              if (_selectedPaymentMethod == 0 && _receiptImagePath != null) {
+                final uploaded = await orderProvider.uploadDeposit(orderId, _receiptImagePath!);
+                if (!uploaded) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('فشل رفع سند التحويل!')));
+                  return;
+                }
+              }
+
+              // امسح السلة واظهر رسالة نجاح
+              Provider.of<CartProvider>(context, listen: false).clearCart(supermarketId);
+              showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text('تم تنفيذ الطلب'),
+                  content: const Text('تم تنفيذ طلبك بنجاح!'),
+                  actions: [
+                    TextButton(
+                        onPressed: () {
+                          Navigator.of(context).popUntil((r) => r.isFirst);
+                        },
+                        child: const Text('حسنًا')),
+                  ],
+                ),
+              );
+            },
+      style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+      child: orderProvider.isLoading
+          ? const CircularProgressIndicator()
+          : const Text('تأكيد الطلب', style: TextStyle(fontSize: 18)),
     );
-
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        Navigator.pop(context); // إغلاق مؤشر التحميل
-        cartProvider.clearCart(); // مسح العربة
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('تم تأكيد الطلب'),
-            content: const Text('تم تأكيد طلبك بنجاح! سيتم التواصل معك قريبًا.'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                },
-                child: const Text('حسنًا'),
-              ),
-            ],
-          ),
-        );
-      }
-    });
   }
 
-  void _cancelOrderDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('إلغاء الطلب'),
-        content: const Text('هل أنت متأكد من رغبتك في إلغاء الطلب؟'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('لا')),
-          TextButton(onPressed: () => Navigator.popUntil(context, (route) => route.isFirst), child: const Text('نعم، إلغاء الطلب')),
-        ],
-      ),
-    );
+  Future<void> _pickReceiptImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() => _receiptImagePath = pickedFile.path);
+    }
   }
-}
-
-class _AddressField extends StatelessWidget {
-  final String label;
-  final int maxLines;
-  final TextInputType? keyboardType;
-
-  const _AddressField({required this.label, this.maxLines = 1, this.keyboardType});
 
   @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-    );
+  void dispose() {
+    _cityController.dispose();
+    _streetController.dispose();
+    _phoneController.dispose();
+    _notesController.dispose();
+    super.dispose();
   }
 }

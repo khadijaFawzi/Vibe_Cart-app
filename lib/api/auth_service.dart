@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'api_service.dart';
 import 'storage_service.dart';
 
@@ -13,7 +15,7 @@ class AuthService {
     _apiService = apiService ?? ApiService(),
     _storageService = storageService ?? StorageService();
 
-  // تسجيل مستخدم جديد
+  /// تسجيل مستخدم جديد
   Future<Map<String, dynamic>> register({
     required String username,
     required String email,
@@ -22,209 +24,108 @@ class AuthService {
   }) async {
     try {
       final response = await _apiService.dioInstance.post(
-        '/register', // قم بتغيير هذا المسار حسب API الخاص بك
+        '/register',
         data: {
-          'username': username,
-          'email': email,
-          'password': password,
-          'phone_number': phoneNumber,
+          'username'     : username,
+          'email'        : email,
+          'password'     : password,
+          'phone_number' : phoneNumber,
         },
       );
-      
-      // التحقق من نجاح الاستجابة
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = response.data;
-        
-        // حفظ بيانات المستخدم والرمز المميز
-        if (data['token'] != null) {
-          await _storageService.saveToken(data['token']);
-          
-          if (data['user'] != null) {
-            await _storageService.saveUserData(data['user']);
-          }
+        final token = data['token'] as String?;
+        if (token != null) {
+          // حفظ التوكن وتهيئة الهيدر للمستقبل
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('auth_token', token);
+          _apiService.setAuthToken(token);
         }
-        
-        return {
-          'success': true,
-          'message': 'تم التسجيل بنجاح',
-          'data': data
-        };
+        if (data['user'] != null) {
+          await _storageService.saveUserData(data['user']);
+        }
+        return {'success': true, 'data': data};
       }
-      
-      return {
-        'success': false,
-        'message': 'حدث خطأ أثناء التسجيل',
-      };
-      
-    } on DioException catch (e) {
-      // التعامل مع أخطاء Dio
-      String errorMessage = 'حدث خطأ أثناء التسجيل';
-      
+      return {'success': false, 'message': 'فشل التسجيل'};
+    } on DioError catch (e) {
+      String msg = 'خطأ أثناء التسجيل';
       if (e.response != null) {
-        // الحصول على رسالة الخطأ من الخادم إن وجدت
-        final responseData = e.response?.data;
-        if (responseData != null && responseData['message'] != null) {
-          errorMessage = responseData['message'];
-        } else if (responseData != null && responseData['error'] != null) {
-          errorMessage = responseData['error'];
-        }
-        
-        // التحقق من أخطاء محددة
-        if (e.response?.statusCode == 422) {
-          // أخطاء التحقق
-          final errors = responseData['errors'];
-          if (errors != null && errors is Map) {
-            final firstError = errors.values.first;
-            if (firstError is List && firstError.isNotEmpty) {
-              errorMessage = firstError.first;
-            }
-          }
+        final d = e.response!.data;
+        msg = d['message'] ?? d['error'] ?? msg;
+        if (e.response!.statusCode == 422 && d['errors'] is Map) {
+          final first = (d['errors'] as Map).values.first;
+          if (first is List && first.isNotEmpty) msg = first.first;
         }
       }
-      
-      return {
-        'success': false,
-        'message': errorMessage,
-      };
-    } catch (e) {
-      // التعامل مع الأخطاء العامة
-      return {
-        'success': false,
-        'message': 'حدث خطأ غير متوقع: ${e.toString()}',
-      };
+      return {'success': false, 'message': msg};
     }
   }
-  
-  // تسجيل الدخول
+
+  /// تسجيل الدخول
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
   }) async {
     try {
       final response = await _apiService.dioInstance.post(
-        '/login', // قم بتغيير هذا المسار حسب API الخاص بك
-        data: {
-          'email': email,
-          'password': password,
-        },
+        '/login',
+        data: {'email': email, 'password': password},
       );
-      
       if (response.statusCode == 200) {
         final data = response.data;
-        
-        // حفظ بيانات المستخدم والرمز المميز
-        if (data['token'] != null) {
-          await _storageService.saveToken(data['token']);
-          
-          if (data['user'] != null) {
-            await _storageService.saveUserData(data['user']);
-          }
-          
-          // إعداد الرمز المميز للطلبات المستقبلية
-          _apiService.setAuthToken(data['token']);
+        final token = data['token'] as String?;
+        if (token != null) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('auth_token', token);
+          _apiService.setAuthToken(token);
         }
-        
-        return {
-          'success': true,
-          'message': 'تم تسجيل الدخول بنجاح',
-          'data': data
-        };
-      }
-      
-      return {
-        'success': false,
-        'message': 'حدث خطأ أثناء تسجيل الدخول',
-      };
-      
-    } on DioException catch (e) {
-      String errorMessage = 'حدث خطأ أثناء تسجيل الدخول';
-      
-      if (e.response != null) {
-        if (e.response?.statusCode == 401) {
-          errorMessage = 'البريد الإلكتروني أو كلمة المرور غير صحيحة';
-        } else {
-          final responseData = e.response?.data;
-          if (responseData != null && responseData['message'] != null) {
-            errorMessage = responseData['message'];
-          }
+        if (data['user'] != null) {
+          await _storageService.saveUserData(data['user']);
         }
+        return {'success': true, 'data': data};
       }
-      
-      return {
-        'success': false,
-        'message': errorMessage,
-      };
-    } catch (e) {
-      return {
-        'success': false,
-        'message': 'حدث خطأ غير متوقع: ${e.toString()}',
-      };
+      return {'success': false, 'message': 'فشل تسجيل الدخول'};
+    } on DioError catch (e) {
+      String msg = 'خطأ أثناء تسجيل الدخول';
+      if (e.response?.statusCode == 401) {
+        msg = 'البريد الإلكتروني أو كلمة المرور غير صحيحة';
+      } else if (e.response?.data?['message'] != null) {
+        msg = e.response!.data['message'];
+      }
+      return {'success': false, 'message': msg};
     }
   }
-  
-  // تسجيل الخروج
+
+  /// تسجيل الخروج
   Future<Map<String, dynamic>> logout() async {
     try {
-      // الحصول على الرمز المميز للتحقق من وجود مستخدم مسجل الدخول
-      final token = await _storageService.getToken();
-      
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
       if (token != null) {
-        // إعداد رأس المصادقة للطلب
         _apiService.setAuthToken(token);
-        
-        // استدعاء نقطة نهاية تسجيل الخروج في API
-        final response = await _apiService.dioInstance.post('/logout');
-        
-        // تنظيف البيانات المحلية بغض النظر عن استجابة الخادم
-        await _clearUserSession();
-        
-        if (response.statusCode == 200) {
-          return {
-            'success': true,
-            'message': 'تم تسجيل الخروج بنجاح',
-          };
-        }
-      } else {
-        // إذا لم يكن هناك رمز مميز، قم بتنظيف البيانات المحلية فقط
-        await _clearUserSession();
-        
-        return {
-          'success': true,
-          'message': 'تم تسجيل الخروج بنجاح',
-        };
+        await _apiService.dioInstance.post('/logout');
       }
-      
-      return {
-        'success': true,
-        'message': 'تم تسجيل الخروج بنجاح',
-      };
-      
-    } catch (e) {
-      // في حالة حدوث خطأ، قم بتنظيف البيانات المحلية على أي حال
-      await _clearUserSession();
-      
-      return {
-        'success': true,
-        'message': 'تم تسجيل الخروج بنجاح',
-      };
+    } catch (_) {
+      // نتجاهل أخطاء الخروج
+    } finally {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('auth_token');
+      _apiService.removeAuthToken();
+      await _storageService.deleteUserData();
     }
+    return {'success': true};
   }
-  
-  // تنظيف بيانات الجلسة المحلية
-  Future<void> _clearUserSession() async {
-    await _storageService.deleteToken();
-    await _storageService.deleteUserData();
-    _apiService.removeAuthToken();
-  }
-  
-  // التحقق من حالة المصادقة
+
+  /// تحقق من وجود جلسة مستخدم
   Future<bool> isAuthenticated() async {
-    final token = await _storageService.getToken();
+    final token = await SharedPreferences.getInstance()
+        .then((prefs) => prefs.getString('auth_token'));
     return token != null;
   }
-  
-  // الحصول على بيانات المستخدم الحالي
+
+  /// جلب بيانات المستخدم الحالي من التخزين المحلي
   Future<Map<String, dynamic>?> getCurrentUser() async {
-    return await _storageService.getUserData();
+    return _storageService.getUserData();
   }
 }

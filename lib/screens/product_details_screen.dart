@@ -1,21 +1,26 @@
 // lib/screens/product_details_screen.dart
-import 'package:flutter/material.dart';
 
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:vibe_cart/models/product_supermarket_model.dart';
+
+import 'package:vibe_cart/models/product.dart';
+import 'package:vibe_cart/models/price_comparison.dart';
+import 'package:vibe_cart/models/cart_item.dart';
+import 'package:vibe_cart/models/cart_group.dart';
+import 'package:vibe_cart/provider/cart_provider.dart';
+import 'package:vibe_cart/provider/product_provider.dart';
+import 'package:vibe_cart/provider/favorites_provider.dart';
 import 'package:vibe_cart/screens/checkout_screen.dart';
 import 'package:vibe_cart/screens/price_comparison_screen.dart';
-import 'package:vibe_cart/services/provider_manager.dart';
 import 'package:vibe_cart/utils/theme.dart';
- 
 
 class ProductDetailsScreen extends StatefulWidget {
   final Product product;
-  
+
   const ProductDetailsScreen({
-    super.key,
+    Key? key,
     required this.product,
-  });
+  }) : super(key: key);
 
   @override
   State<ProductDetailsScreen> createState() => _ProductDetailsScreenState();
@@ -23,15 +28,14 @@ class ProductDetailsScreen extends StatefulWidget {
 
 class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   int _quantity = 1;
-  
+
   @override
   Widget build(BuildContext context) {
+    final product = widget.product;
     final favoritesProvider = context.watch<FavoritesProvider>();
-    final cartProvider = context.watch<CartProvider>();
-    
-    final isInFavorites = favoritesProvider.isInFavorites(widget.product.id);
-    final isInCart = cartProvider.isInCart(widget.product.id);
-    
+    final isFavorited = favoritesProvider.favorites
+        .any((fav) => fav.productId == product.id);
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -40,17 +44,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           actions: [
             IconButton(
               icon: Icon(
-                isInFavorites ? Icons.favorite : Icons.favorite_border,
-                color: isInFavorites ? Colors.red : null,
+                isFavorited ? Icons.favorite : Icons.favorite_border,
+                color: isFavorited ? Colors.red : null,
               ),
-              onPressed: () {
-                if (isInFavorites) {
-                  favoritesProvider.removeFromFavorites(widget.product.id);
+              onPressed: () async {
+                if (isFavorited) {
+                  await favoritesProvider.removeFavorite(product.id);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('تم إزالة المنتج من المفضلة')),
+                    const SnackBar(content: Text('تمت إزالة المنتج من المفضلة')),
                   );
                 } else {
-                  favoritesProvider.addToFavorites(widget.product);
+                  await favoritesProvider.addFavorite(product.id);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('تم إضافة المنتج إلى المفضلة')),
                   );
@@ -67,19 +71,17 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               SizedBox(
                 width: double.infinity,
                 height: 250,
-                child: widget.product.imageUrl.isNotEmpty
+                child: product.image.isNotEmpty
                     ? Image.network(
-                        widget.product.imageUrl,
+                        product.image,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Center(
-                            child: Icon(
-                              Icons.local_grocery_store,
-                              size: 100,
-                              color: AppColors.accent,
-                            ),
-                          );
-                        },
+                        errorBuilder: (_, __, ___) => const Center(
+                          child: Icon(
+                            Icons.local_grocery_store,
+                            size: 100,
+                            color: AppColors.accent,
+                          ),
+                        ),
                       )
                     : const Center(
                         child: Icon(
@@ -89,110 +91,64 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                         ),
                       ),
               ),
-              
+
               // معلومات المنتج
               Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // اسم المنتج
-                    
                     Text(
-                      widget.product.name,
+                      product.productName,
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    
-                    // السعر
-                    if (widget.product.isOffer)
-                      Row(
-                        children: [
-                          Text(
-                            '${widget.product.discountedPrice.toStringAsFixed(0)} ريال',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.accent,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '${widget.product.price.toStringAsFixed(0)} ريال',
-                            style: const TextStyle(
-                              color: Colors.grey,
-                              decoration: TextDecoration.lineThrough,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              'خصم ${widget.product.discountPercentage?.toStringAsFixed(0)}%',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    else
-                      Text(
-                        '${widget.product.price.toStringAsFixed(0)} ريال',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.accent,
-                        ),
+                    Text(
+                      '${product.price.toStringAsFixed(0)} ر.س',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.accent,
                       ),
-                    const SizedBox(height: 16),
-                    
-                    // المركز التجاري
-                    Row(
-                      children: [
-                        const Icon(Icons.store, color: Colors.grey),
-                        const SizedBox(width: 8),
-                        const Text(
-                          'المركز التجاري:',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
-                          ),
+                    ),
+                    if (product.isOffer) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'مركز ${widget.product.centerId}', // سيتم تحديثه لاستخدام اسم المركز الفعلي
-                          style: const TextStyle(
-                            fontSize: 16,
+                        child: const Text(
+                          'عرض خاص',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+
                     // زر المقارنة
                     InkWell(
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => PriceComparisonScreen(productId: widget.product.id),
+                            builder: (_) => PriceComparisonScreen(
+                                barcode: product.barcode),
                           ),
                         );
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 8, horizontal: 12),
                         decoration: BoxDecoration(
                           color: Colors.blue.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
@@ -201,7 +157,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.compare_arrows, color: Colors.blue, size: 18),
+                            Icon(Icons.compare_arrows,
+                                color: Colors.blue, size: 18),
                             SizedBox(width: 4),
                             Text(
                               'مقارنة السعر بين المراكز',
@@ -212,8 +169,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
-                    // وصف المنتج
                     const Text(
                       'الوصف',
                       style: TextStyle(
@@ -223,14 +178,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      widget.product.description,
+                      product.description,
                       style: const TextStyle(
                         fontSize: 16,
                         color: Colors.black87,
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
+
                     // اختيار الكمية
                     const Text(
                       'الكمية',
@@ -245,15 +200,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                         IconButton(
                           icon: const Icon(Icons.remove_circle_outline),
                           onPressed: _quantity > 1
-                              ? () {
-                                  setState(() {
-                                    _quantity--;
-                                  });
-                                }
+                              ? () => setState(() => _quantity--)
                               : null,
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
                             border: Border.all(color: Colors.grey),
                             borderRadius: BorderRadius.circular(4),
@@ -268,53 +220,123 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.add_circle_outline),
-                          onPressed: () {
-                            setState(() {
-                              _quantity++;
-                            });
-                          },
+                          onPressed: () => setState(() => _quantity++),
                         ),
                       ],
                     ),
                     const SizedBox(height: 24),
-                    
+
                     // أزرار الشراء والإضافة للعربة
                     Row(
                       children: [
-                        // زر الطلب الآن
                         Expanded(
                           flex: 2,
                           child: ElevatedButton(
-                            onPressed: () {
-                              cartProvider.addToCart(widget.product, quantity: _quantity);
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const CheckoutScreen(),
-                                ),
-                              );
+                            onPressed: () async {
+                              try {
+                                // استدعاء مزود المنتج
+                                final prodProv = context.read<ProductProvider>();
+                                final comp = await prodProv.getComparisonByBarcode(
+                                    product.barcode);
+                                if (comp.offers.isEmpty) {
+                                  throw Exception('لا توجد عروض للطلب');
+                                }
+                                // اختيار أفضل سعر
+                                final bestOffer = comp.offers.firstWhere(
+                                  (o) => o.price == comp.minPrice,
+                                  orElse: () => comp.offers.first,
+                                );
+                                // إضافة إلى السلة
+                                await context.read<CartProvider>().add(
+                                  product.id,
+                                  bestOffer.supermarketId,
+                                  _quantity,
+                                );
+                                // تحضير عناصر الطلب المؤقتة
+                                final tempItem = CartItem(
+                                  id: 0,
+                                  productId: product.id,
+                                  productName: product.productName,
+                                  supermarketId: bestOffer.supermarketId,
+                                  supermarketName: bestOffer.supermarketName,
+                                  quantity: _quantity,
+                                  price: bestOffer.price,
+                                  total: bestOffer.price * _quantity,
+                                  imageUrl: product.image,
+                                );
+                               final tempGroup = CartGroup(
+  supermarketId: bestOffer.supermarketId,   // <-- أضف هذا السطر
+  supermarket: bestOffer.supermarketName,
+  subtotal: tempItem.total,
+  items: [tempItem],
+);
+
+                                // الانتقال لصفحة الدفع
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => CheckoutScreen(
+                                      groups: [tempGroup],
+                                    ),
+                                  ),
+                                );
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('فشل الطلب: ${e.toString()}'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
                             },
                             style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 12),
                             ),
                             child: const Text('اطلب الآن'),
                           ),
                         ),
                         const SizedBox(width: 12),
-                        // زر الإضافة للعربة
                         Expanded(
                           flex: 1,
                           child: OutlinedButton.icon(
-                            onPressed: isInCart
-                                ? null
-                                : () {
-                                    cartProvider.addToCart(widget.product, quantity: _quantity);
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('تم إضافة المنتج إلى العربة')),
-                                    );
-                                  },
+                            onPressed: () async {
+                              try {
+                                final prodProv = context.read<ProductProvider>();
+                                final comp = await prodProv.getComparisonByBarcode(
+                                    product.barcode);
+                                if (comp.offers.isEmpty) {
+                                  throw Exception(
+                                      'لا توجد عروض لإضافة للعربة');
+                                }
+                                final bestOffer = comp.offers.firstWhere(
+                                  (o) => o.price == comp.minPrice,
+                                  orElse: () => comp.offers.first,
+                                );
+                                await context.read<CartProvider>().add(
+                                  product.id,
+                                  bestOffer.supermarketId,
+                                  _quantity,
+                                );
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'تم إضافة المنتج إلى العربة'),
+                                    backgroundColor: Colors.green,
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('فشل الإضافة: ${e.toString()}'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
                             icon: const Icon(Icons.shopping_cart),
-                            label: Text(isInCart ? 'في العربة' : 'أضف للعربة'),
+                            label: const Text('أضف للعربة'),
                           ),
                         ),
                       ],

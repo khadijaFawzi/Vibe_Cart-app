@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:vibe_cart/api/api_service.dart';
 import 'package:vibe_cart/api/category_provider.dart';
+import 'package:vibe_cart/provider/OrderProvider.dart';
 import 'package:vibe_cart/provider/auth_provider.dart';
+import 'package:vibe_cart/provider/cart_provider.dart';
+import 'package:vibe_cart/provider/favorites_provider.dart';
+import 'package:vibe_cart/provider/offers_provider.dart';
+import 'package:vibe_cart/provider/product_provider.dart';
 import 'package:vibe_cart/provider/supermarket_provider.dart';
 
 import 'package:vibe_cart/screens/login_screen.dart';
 import 'package:vibe_cart/screens/home_screen.dart';
 
 import 'package:vibe_cart/services/language_provider.dart';
-import 'package:vibe_cart/services/provider_manager.dart';
+
 
 import 'package:vibe_cart/services/theme_provider.dart';
 import 'package:vibe_cart/utils/theme.dart';
@@ -33,17 +39,23 @@ void main() async {
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
-
+  final apiService = ApiService();
   runApp(
     MultiProvider(
       providers: [
+        Provider<ApiService>.value(value: apiService),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+      
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
-        ChangeNotifierProvider(create: (_) => CenterProvider()),
+     //   ChangeNotifierProvider(create: (_) => CenterProvider()),
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => SuperMarketProvider()),
+        ChangeNotifierProvider(create: (_) => OffersProvider()),
+        ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider(create: (_) => FavoritesProvider()),
+        ChangeNotifierProvider(create: (_) => OrderProvider(apiService: ApiService())), 
 
       ],
       child: const MyApp(),

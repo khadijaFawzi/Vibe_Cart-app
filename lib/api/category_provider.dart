@@ -11,20 +11,21 @@ class CategoryProvider with ChangeNotifier {
   String error = '';
 
   Future<void> loadCategories() async {
-    isLoading = true;
-    error = '';
-    notifyListeners();
+  isLoading = true;
+  error = '';
+  notifyListeners();
 
-    try {
-      categories = await _api.getCategories();
-      if (categories.isEmpty) {
-        error = 'لا توجد فئات متاحة';
-      }
-    } catch (e) {
-      error = 'فشل في جلب الفئات: $e';
+  try {
+    categories = await _api.getCategories(); // تأكد هنا أن الدالة getCategories تستخدم رابط الفئات
+    if (categories.isEmpty) {
+      error = 'لا توجد فئات متاحة';
     }
-
-    isLoading = false;
-    notifyListeners();
+  } catch (e) {
+    error = 'فشل في جلب الفئات: $e';
   }
+
+  isLoading = false;
+  notifyListeners();
+}
+
 }
