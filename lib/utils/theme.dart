@@ -5,7 +5,7 @@ class AppColors {
   // الألوان الأساسية
   static const Color primary = Color(0xFFFFFFFF); // أبيض نقي
   static const Color secondary = Color.fromARGB(255, 229, 230, 229); // أخضر فاتح جداً
-  static const Color accent = Color.fromARGB(255, 30, 46, 138);// أخضر رئيسي
+  static const Color accent = Color.fromARGB(255, 92, 128, 118);
   static const Color background = Color(0xFFFCFCFC); // خلفية أساسية
   static const Color textPrimary = Color.fromARGB(255, 0, 0, 0); // نص أساسي
   static const Color textSecondary = Color(0xFF666666); // نص ثانوي

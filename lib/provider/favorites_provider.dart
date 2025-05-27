@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:vibe_cart/api/api_service.dart';
 import '../models/favorite_item.dart';
 
-
 class FavoritesProvider extends ChangeNotifier {
   final ApiService _api = ApiService();
   List<FavoriteItem> _favorites = [];
@@ -13,14 +12,24 @@ class FavoritesProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String get error => _error;
 
-  /// جلب قائمة المفضلات
-  Future<void> loadFavorites() async {
+  /// جلب قائمة المفضّلات مع إمكانية تمرير فلاتر
+  Future<void> loadFavorites({
+    String? type,
+    int? supermarketId,
+    String? fromDate,
+    String? toDate,
+  }) async {
     _isLoading = true;
     _error = '';
     notifyListeners();
 
     try {
-      _favorites = await _api.getFavorites();
+      _favorites = await _api.getFavorites(
+        type: type,
+        supermarketId: supermarketId,
+        fromDate: fromDate,
+        toDate: toDate,
+      );
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -29,61 +38,80 @@ class FavoritesProvider extends ChangeNotifier {
     }
   }
 
-  /// إضافة منتج إلى المفضلة ثم تحديث القائمة
-  Future<void> addFavorite(int productId) async {
+  /// إضافة عنصر إلى المفضّلات ثم تحديث القائمة
+  Future<void> addFavorite({
+    required String type,           // 'product' أو 'offer'
+    required int favoritableId,
+  }) async {
     _error = '';
+    notifyListeners();
+
     try {
-      final success = await _api.addFavorite(productId);
+      final success = await _api.addFavorite(
+        type: type,
+        favoritableId: favoritableId,
+      );
       if (success) {
         await loadFavorites();
       } else {
         _error = 'فشل في إضافة المفضلة';
-        notifyListeners();
       }
     } catch (e) {
       _error = e.toString();
+    } finally {
       notifyListeners();
     }
   }
 
-  /// إزالة منتج من المفضلة ثم تحديث القائمة
-  Future<void> removeFavorite(int productId) async {
+  /// إزالة عنصر من المفضّلات ثم تحديث القائمة
+  Future<void> removeFavorite({
+    required String type,           // 'product' أو 'offer'
+    required int favoritableId,
+  }) async {
     _error = '';
+    notifyListeners();
+
     try {
-      final success = await _api.removeFavorite(productId);
+      final success = await _api.removeFavorite(
+        type: type,
+        favoritableId: favoritableId,
+      );
       if (success) {
         await loadFavorites();
       } else {
         _error = 'فشل في إزالة المفضلة';
-        notifyListeners();
       }
     } catch (e) {
       _error = e.toString();
+    } finally {
       notifyListeners();
     }
   }
 
-  /// تبديل حالة المفضلة (إضافة/إزالة)
-  Future<void> toggleFavorite(int productId) async {
-    final exists = _favorites.any((f) => f.productId == productId);
-    if (exists) {
-      await removeFavorite(productId);
+  /// تبديل حالة المفضلة بناءً على الـ id العام
+  Future<void> toggleFavorite(FavoriteItem item) async {
+    if (_favorites.any((f) => f.type == item.type && f.id == item.id)) {
+      await removeFavorite(
+        type: item.type,
+        favoritableId: item.id,
+      );
     } else {
-      await addFavorite(productId);
+      await addFavorite(
+        type: item.type,
+        favoritableId: item.id,
+      );
     }
   }
 
-Future<void> clearFavorites() async {
-  // مثال: DELETE لكل عنصر
-  for (var fav in List<FavoriteItem>.from(_favorites)) {
-    await removeFavorite(fav.productId);
+  /// مسح جميع المفضّلات (مثال: حذف كل عنصر على حدة)
+  Future<void> clearFavorites() async {
+    for (var fav in List<FavoriteItem>.from(_favorites)) {
+      await removeFavorite(
+        type: fav.type,
+        favoritableId: fav.id,
+      );
+    }
+    _favorites.clear();
+    notifyListeners();
   }
-  // أو إذا كان لديك endpoint bulk:
-  // await _api.clearAllFavorites();
-
-  // ثم تفريغ القائمة محليًّا
-  _favorites.clear();
-  notifyListeners();
-}
-
 }

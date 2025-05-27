@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:vibe_cart/models/category_model.dart';
-import 'package:vibe_cart/models/center_model.dart';
-import 'package:vibe_cart/models/product.dart';
-import 'package:vibe_cart/models/product_supermarket_model.dart';
-import 'package:vibe_cart/services/api_service_old.dart';
-import 'package:vibe_cart/services/cart_service.dart';
-import 'package:vibe_cart/services/favorites_service.dart';
+// import 'package:flutter/material.dart';
+// import 'package:vibe_cart/models/category_model.dart';
+// import 'package:vibe_cart/models/center_model.dart';
+// import 'package:vibe_cart/models/product.dart';
+// import 'package:vibe_cart/models/product_supermarket_model.dart';
+// import 'package:vibe_cart/services/api_service_old.dart';
+// import 'package:vibe_cart/services/cart_service.dart';
+// import 'package:vibe_cart/services/favorites_service.dart';
 
 
 // class ProductProvider extends ChangeNotifier {

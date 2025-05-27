@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:vibe_cart/models/price_comparison.dart';
-import 'package:vibe_cart/models/product.dart'; // إضافة استيراد نموذج المنتج
+import 'package:vibe_cart/models/product.dart';
 import 'package:vibe_cart/provider/product_provider.dart';
 import 'package:vibe_cart/provider/cart_provider.dart';
 import 'package:vibe_cart/utils/theme.dart';
-import 'package:vibe_cart/screens/product_details_screen.dart'; // إضافة استيراد صفحة تفاصيل المنتج
+import 'package:vibe_cart/screens/product_details_screen.dart';
 
 class PriceComparisonScreen extends StatefulWidget {
   final String barcode;
@@ -57,85 +57,69 @@ class _PriceComparisonScreenState extends State<PriceComparisonScreen> {
     }
   }
 
-  // إضافة دالة لإضافة المنتج إلى السلة
-// داخل PriceComparisonScreen
-// داخل PriceComparisonScreen
-Future<void> _addToCart(PriceOffer offer) async {
-  setState(() => _addingToCart[offer.supermarketId] = true);
+  Future<void> _addToCart(PriceOffer offer) async {
+    setState(() => _addingToCart[offer.supermarketId] = true);
 
-  try {
-    // 1) جلب قائمة المنتجات لهذا السوبرماركت
-    final productProvider = context.read<ProductProvider>();
-    final products = await productProvider.getProductsBySupermarket(offer.supermarketId);
-
-    // 2) إيجاد المنتج الذي يطابق barcode واسم المنتج
-    final product = products.firstWhere(
-      (p) =>
-          p.barcode == _comparison!.barcode &&
-          p.productName == _comparison!.productName,
-      orElse: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('هذا المنتج غير متوفر في هذا السوبرماركت'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        throw StateError('Product not found in supermarket ${offer.supermarketId}');
-      },
-    );
-
-    // 3) إرسال طلب الإضافة بمعرّف المنتج الصحيح
-    await context.read<CartProvider>().add(
-      product.id,
-      offer.supermarketId,
-      1,
-    );
-
-    // 4) إظهار رسالة نجاح
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('تمت إضافة "${product.productName}" إلى السلة'),
-        backgroundColor: Colors.green,
-      ),
-    );
-
-    // 5) إعادة تحميل السلة بشكل منفصل، وأي فشل هنا لا يؤثر على نجاح الإضافة
     try {
-      await context.read<CartProvider>().loadCart();
-    } catch (_) {
-      debugPrint('تمت إضافة العنصر ولكن فشل تحميل محتوى السلة');
-    }
+      final productProvider = context.read<ProductProvider>();
+      final products = await productProvider.getProductsBySupermarket(offer.supermarketId);
 
-  } catch (e) {
-    // هذا catch يصيد فقط الأخطاء الحقيقية من جلب المنتج أو الإضافة
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('فشل إضافة المنتج: ${e.toString().replaceAll("Exception: ", "")}'),
-        backgroundColor: Colors.red,
-      ),
-    );
-  } finally {
-    if (mounted) {
-      setState(() => _addingToCart[offer.supermarketId] = false);
+      final product = products.firstWhere(
+        (p) =>
+            p.barcode == _comparison!.barcode &&
+            p.productName == _comparison!.productName,
+        orElse: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('هذا المنتج غير متوفر في هذا السوبرماركت'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          throw StateError('Product not found in supermarket ${offer.supermarketId}');
+        },
+      );
+
+      await context.read<CartProvider>().add(
+        product.id,
+        offer.supermarketId,
+        1,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('تمت إضافة "${product.productName}" إلى السلة'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      try {
+        await context.read<CartProvider>().loadCart();
+      } catch (_) {
+        debugPrint('تمت إضافة العنصر ولكن فشل تحميل محتوى السلة');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('فشل إضافة المنتج: ${e.toString().replaceAll("Exception: ", "")}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _addingToCart[offer.supermarketId] = false);
+      }
     }
   }
-}
 
-
-
-
-  // إضافة دالة للانتقال إلى صفحة تفاصيل المنتج
   void _navigateToProductDetails(PriceOffer offer) async {
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
-      // جلب تفاصيل المنتج من قاعدة البيانات باستخدام productProvider
       final productProvider = context.read<ProductProvider>();
       final List<Product> products = await productProvider.getProductsBySupermarket(offer.supermarketId);
-      
-      // البحث عن المنتج المطابق للباركود
+
       final product = products.firstWhere(
         (p) => p.barcode == _comparison!.barcode,
         orElse: () => Product(
@@ -143,19 +127,19 @@ Future<void> _addToCart(PriceOffer offer) async {
           productName: _comparison!.productName,
           barcode: _comparison!.barcode,
           price: offer.price,
-          categoryId: 0, // قيمة افتراضية
+          categoryId: 0,
           description: '',
           image: offer.imageUrl,
           supermarketId: offer.supermarketId,
+          supermarketName: offer.supermarketName, // هنا الحل
         ),
       );
-      
+
       if (mounted) {
         setState(() {
           _isLoading = false;
         });
-        
-        // الانتقال إلى صفحة تفاصيل المنتج
+
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -168,7 +152,7 @@ Future<void> _addToCart(PriceOffer offer) async {
         setState(() {
           _isLoading = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('فشل في تحميل تفاصيل المنتج: ${e.toString()}'),
@@ -231,7 +215,6 @@ Future<void> _addToCart(PriceOffer offer) async {
 
     return Column(
       children: [
-        // عنوان المنتج
         Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -257,7 +240,6 @@ Future<void> _addToCart(PriceOffer offer) async {
           ),
         ),
 
-        // بطاقة أفضل سعر
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Card(
@@ -305,7 +287,6 @@ Future<void> _addToCart(PriceOffer offer) async {
           ),
         ),
 
-        // قائمة العروض في السوبرماركتات المختلفة
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
@@ -328,7 +309,6 @@ Future<void> _addToCart(PriceOffer offer) async {
                   padding: const EdgeInsets.all(8.0),
                   child: Row(
                     children: [
-                      // صورة المركز التجاري
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: offer.imageUrl.isNotEmpty
@@ -349,10 +329,7 @@ Future<void> _addToCart(PriceOffer offer) async {
                                 color: AppColors.accent,
                               ),
                       ),
-                      
                       const SizedBox(width: 12),
-                      
-                      // معلومات العرض
                       Expanded(
                         child: InkWell(
                           onTap: () => _navigateToProductDetails(offer),
@@ -363,8 +340,8 @@ Future<void> _addToCart(PriceOffer offer) async {
                                 offer.supermarketName,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.accent, // تغيير لون النص ليبدو كرابط
-                                  decoration: TextDecoration.underline, // إضافة خط تحت النص
+                                  color: AppColors.accent,
+                                  decoration: TextDecoration.underline,
                                 ),
                               ),
                               if (!isBest)
@@ -372,26 +349,21 @@ Future<void> _addToCart(PriceOffer offer) async {
                                   'أغلى بـ ${difference.toStringAsFixed(0)} ريال',
                                   style: const TextStyle(
                                     color: Colors.red, 
-                                    fontSize: 12
+                                    fontSize: 12,
                                   ),
                                 ),
                             ],
                           ),
                         ),
                       ),
-                      
-                      // السعر
                       Text(
-                        '${offer.price.toStringAsFixed(0)} ر.س',
+                        '${offer.price.toStringAsFixed(0)} ر.ي',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: isBest ? Colors.green : AppColors.accent,
                         ),
                       ),
-                      
                       const SizedBox(width: 12),
-                      
-                      // زر إضافة إلى السلة
                       Container(
                         decoration: BoxDecoration(
                           color: AppColors.accent.withOpacity(0.1),

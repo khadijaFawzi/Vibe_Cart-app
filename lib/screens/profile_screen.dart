@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vibe_cart/provider/OrderProvider.dart';
 import 'package:vibe_cart/utils/theme.dart';
-
 import '../provider/auth_provider.dart';
 
-import '../models/order.dart'; // أضف هذا
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -51,7 +49,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _updateProfile() async {
     if (_formKey.currentState!.validate()) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+   
 
       // هنا ممكن تنفذ عملية تحديث في الباك اند لو حبيت
       if (mounted) {
@@ -222,7 +220,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('الحالة: ${_translateOrderStatus(order.status)}'),
-                        Text('الإجمالي: ${order.total.toStringAsFixed(2)} ر.س'),
+                        Text('الإجمالي: ${order.total.toStringAsFixed(2)} ر.ي'),
                         Text('تاريخ الطلب: ${order.createdAt ?? ''}'),
                       ],
                     ),

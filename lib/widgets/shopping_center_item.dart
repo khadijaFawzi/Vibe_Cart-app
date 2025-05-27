@@ -20,7 +20,7 @@ class ShoppingCenterItem extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => SupermarketProductsScreen(
+            builder: (_) => SupermarketMainScreen(
               supermarket: supermarket,                          // تمرير المعامل الصحيح
             ),
           ),

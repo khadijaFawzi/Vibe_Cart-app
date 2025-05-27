@@ -1,19 +1,18 @@
 
-
 // lib/models/product_model.dart
-class Product {
+class PriceComparisons {
   final int id;
   final String productName;
-  final String barcode;             
+  final String barcode;             // لإضافة حقل الباركود
   final double price;
   final int categoryId;
   final String description;
   final String image;
   final int supermarketId;
-  final String supermarketName;   // <-- الحقل الجديد
-  final bool isOffer;
+  
+  final bool isOffer;               // اختياري لتحديد ما إذا كان المنتج عرضًا
 
-  Product({
+  PriceComparisons({
     required this.id,
     required this.productName,
     required this.barcode,
@@ -22,11 +21,11 @@ class Product {
     required this.description,
     required this.image,
     required this.supermarketId,
-    required this.supermarketName,  // <-- الحقل الجديد إجباري
     this.isOffer = false,
   });
 
-  factory Product.fromJson(Map<String, dynamic> json) {
+  factory PriceComparisons.fromJson(Map<String, dynamic> json) {
+    // محاولة قراءة المفاتيح بالصيغتين العربية والإنجليزية، مع قيم افتراضية
     final id = (json['id'] as num?)?.toInt() ?? 0;
     final name = (json['product_name'] as String?)
             ?? (json['name'] as String?)
@@ -46,15 +45,9 @@ class Product {
             ?? (json['image_url'] as String?)
             ?? '';
     final supermarketId = (json['supermarket_id'] as num?)?.toInt() ?? 0;
-    // يدعم كل الاحتمالات الممكنة من الـ API
-    final supermarketName = (json['supermarketName'] as String?)
-      ?? (json['supermarket_name'] as String?)
-      ?? (json['supermarket'] as String?)
-      ?? '';
-
     final isOffer = json['is_offer'] == 1 || json['is_offer'] == true;
 
-    return Product(
+    return PriceComparisons(
       id: id,
       productName: name,
       barcode: barcode,
@@ -63,7 +56,6 @@ class Product {
       description: description,
       image: image,
       supermarketId: supermarketId,
-      supermarketName: supermarketName, // <-- هنا
       isOffer: isOffer,
     );
   }

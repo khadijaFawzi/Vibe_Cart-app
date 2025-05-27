@@ -53,7 +53,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          MaterialPageRoute(builder: (context) => const HomePageContent()),
         );
       } else if (mounted) {
         // عرض رسالة الخطأ

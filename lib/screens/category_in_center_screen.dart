@@ -1,39 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:vibe_cart/models/category_model.dart';
+import 'package:vibe_cart/models/product.dart';
 import 'package:vibe_cart/provider/product_provider.dart';
 import 'package:vibe_cart/provider/cart_provider.dart';
 import 'package:vibe_cart/provider/favorites_provider.dart';
-import 'package:vibe_cart/models/center_model.dart';
-import 'package:vibe_cart/models/category_model.dart';
-import 'package:vibe_cart/models/product.dart';
-import 'package:vibe_cart/utils/theme.dart';
+import 'package:vibe_cart/widgets/supermarket_product_card.dart';
 import 'package:vibe_cart/screens/product_details_screen.dart';
 
-class CategoryInCenterScreen extends StatefulWidget {
-  final ShoppingCenter center;
+class SupermarketCategoryProductsScreen extends StatefulWidget {
+  final int supermarketId;
   final Category category;
 
-  const CategoryInCenterScreen({
+  const SupermarketCategoryProductsScreen({
     Key? key,
-    required this.center,
+    required this.supermarketId,
     required this.category,
   }) : super(key: key);
 
   @override
-  State<CategoryInCenterScreen> createState() => _CategoryInCenterScreenState();
+  State<SupermarketCategoryProductsScreen> createState() =>
+      _SupermarketCategoryProductsScreenState();
 }
 
-class _CategoryInCenterScreenState extends State<CategoryInCenterScreen> {
+class _SupermarketCategoryProductsScreenState
+    extends State<SupermarketCategoryProductsScreen> {
+  List<Product> _products = [];
   bool _isLoading = true;
   String _error = '';
-  List<Product> _products = [];
 
   @override
   void initState() {
     super.initState();
-    // Load cart and favorites to have data for state checks
-    context.read<CartProvider>().loadCart();
-    context.read<FavoritesProvider>().loadFavorites();
     _loadProducts();
   }
 
@@ -42,15 +40,24 @@ class _CategoryInCenterScreenState extends State<CategoryInCenterScreen> {
       _isLoading = true;
       _error = '';
     });
+
     try {
-      final all = await context
-          .read<ProductProvider>()
-          .getProductsBySupermarket(widget.center.id);
-      _products = all
-          .where((p) => p.categoryId == widget.category.id)
-          .toList();
+      final prodProv = context.read<ProductProvider>();
+      final products = await prodProv.getProductsBySupermarketAndCategory(
+        widget.supermarketId,
+        widget.category.id,
+      );
+
+      setState(() {
+        _products = products;
+        if (products.isEmpty) {
+          _error = 'لا توجد منتجات في هذه الفئة.';
+        }
+      });
     } catch (e) {
-      _error = e.toString();
+      setState(() {
+        _error = 'حدث خطأ أثناء جلب المنتجات: $e';
+      });
     } finally {
       setState(() {
         _isLoading = false;
@@ -60,236 +67,109 @@ class _CategoryInCenterScreenState extends State<CategoryInCenterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final favProv = context.watch<FavoritesProvider>();
+    final cartProv = context.watch<CartProvider>();
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        backgroundColor: const Color(0xFFF9FAFB),
         appBar: AppBar(
-          title: Text('${widget.category.categoryName} - ${widget.center.name}'),
-          backgroundColor: AppColors.accent,
+          elevation: 1.5,
+          backgroundColor: Colors.white,
+          iconTheme: const IconThemeData(color: Color(0xFF234D59)),
+          title: Text(
+            'منتجات فئة "${widget.category.categoryName}"',
+            style: const TextStyle(
+              color: Color(0xFF234D59),
+              fontWeight: FontWeight.bold,
+              fontSize: 17,
+            ),
+          ),
         ),
         body: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.accent),
-                ),
-              )
+            ? const Center(child: CircularProgressIndicator())
             : _error.isNotEmpty
-                ? _buildErrorState()
-                : _products.isEmpty
-                    ? _buildEmptyState()
-                    : RefreshIndicator(
-                        onRefresh: _loadProducts,
-                        child: GridView.builder(
-                          padding: const EdgeInsets.all(16),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 0.65,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                          ),
-                          itemCount: _products.length,
-                          itemBuilder: (_, i) => _buildProductItem(_products[i]),
-                        ),
+                ? Center(
+                    child: Text(
+                      _error,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.bold,
                       ),
-      ),
-    );
-  }
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _loadProducts,
+                    child: _products.isEmpty
+                        ? const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(24.0),
+                              child: Text(
+                                "لا توجد منتجات في هذه الفئة.",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          )
+                        : GridView.builder(
+                            padding: const EdgeInsets.all(16),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              childAspectRatio: 0.73,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                            ),
+                            itemCount: _products.length,
+                            itemBuilder: (ctx, i) {
+                              final product = _products[i];
+                              final isFav = favProv.favorites.any(
+                                  (f) => f.type == 'product' && f.productId == product.id);
+                              final inCart = cartProv.groups.any((group) =>
+                                  group.items.any((item) => item.productId == product.id));
 
-  Widget _buildErrorState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          Text('حدث خطأ: $_error', textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          ElevatedButton(onPressed: _loadProducts, child: const Text('إعادة المحاولة'))
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.shopping_basket_outlined, size: 64, color: Colors.grey),
-          const SizedBox(height: 16),
-          Text(
-            'لا توجد منتجات في فئة ${widget.category.categoryName} في ${widget.center.name}',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16, color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProductItem(Product product) {
-    final cartProv = context.watch<CartProvider>();
-    final favProv = context.watch<FavoritesProvider>();
-    // تحقق من وجود المنتج في العربة والمفضلة من بيانات الموفر
-    final isInCart = cartProv.groups
-        .any((g) => g.items.any((item) => item.productId == product.id));
-    final isFav = favProv.favorites
-        .any((fav) => fav.productId == product.id);
-
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => ProductDetailsScreen(product: product)),
-      ),
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildProductImage(product, isFav),
-            Expanded(child: _buildProductInfo(product, isInCart, cartProv)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProductImage(Product product, bool isFav) {
-    return Stack(
-      children: [
-        ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-          child: SizedBox(
-            height: 120,
-            width: double.infinity,
-            child: product.image.isNotEmpty
-                ? Image.network(product.image, fit: BoxFit.cover)
-                : const Center(
-                    child: Icon(Icons.local_grocery_store, size: 40, color: AppColors.accent),
+                              return SupermarketProductCard(
+                                product: product,
+                                isFavorite: isFav,
+                                isInCart: inCart,
+                                onToggleFavorite: () async {
+                                  if (isFav) {
+                                    await favProv.removeFavorite(
+                                      type: 'product',
+                                      favoritableId: product.id,
+                                    );
+                                  } else {
+                                    await favProv.addFavorite(
+                                      type: 'product',
+                                      favoritableId: product.id,
+                                    );
+                                  }
+                                },
+                                onAddToCart: () async {
+                                  await cartProv.add(
+                                    product.id,
+                                    product.supermarketId,
+                                    1,
+                                  );
+                                },
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          ProductDetailsScreen(product: product),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
                   ),
-          ),
-        ),
-        if (product.isOffer)
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)),
-              // child: Text(
-              //   'خصم ${product.discountPercentage?.toStringAsFixed(0)}%',
-              //   style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-              // ),
-            ),
-          ),
-        Positioned(
-          top: 8,
-          left: 8,
-          child: GestureDetector(
-            onTap: () => _toggleFavorite(product, isFav),
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-              child: Icon(isFav ? Icons.favorite : Icons.favorite_border,
-                  color: isFav ? Colors.red : Colors.grey, size: 20),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
-  }
-
- Widget _buildProductInfo(
-  Product product,
-  bool isInCart,
-  CartProvider cartProv,
-) {
-  return Padding(
-    padding: const EdgeInsets.all(8.0),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // اسم المنتج
-        Text(
-          product.productName,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-
-        const SizedBox(height: 4),
-
-        // عرض السعر أو سعر العرض
-        product.isOffer ? _offerPrice(product) : _price(product),
-
-        const Spacer(),
-
-        // زر الإضافة
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: isInCart
-                ? null
-                : () async {
-                    try {
-                      // نمرر فقط productId, supermarketId, quantity
-                      await cartProv.add(
-                        product.id,
-                        widget.center.id,
-                        1,
-                      );
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('تم إضافة المنتج إلى العربة'),
-                        ),
-                      );
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('حدث خطأ: $e'),
-                        ),
-                      );
-                    }
-                  },
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              textStyle: const TextStyle(fontSize: 12),
-            ),
-            child: Text(isInCart ? 'في العربة' : 'أضف للعربة'),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-
-  Widget _price(Product product) => Text('${product.price.toStringAsFixed(0)} ر.س',
-      style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold));
-
-  Widget _offerPrice(Product product) => Row(
-        children: [
-          // Text('${product.discountedPrice.toStringAsFixed(0)} ر.س',
-          //     style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold)),
-          const SizedBox(width: 4),
-          Text('${product.price.toStringAsFixed(0)}',
-              style: const TextStyle(color: Colors.grey, decoration: TextDecoration.lineThrough, fontSize: 10)),
-        ],
-      );
-
-  void _toggleFavorite(Product product, bool isFav) async {
-    final favProv = context.read<FavoritesProvider>();
-    await favProv.toggleFavorite(product.id);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            isFav ? 'تم إزالة المنتج من المفضلة' : 'تم إضافة المنتج إلى المفضلة'
-          )
-        )
-      );
   }
 }

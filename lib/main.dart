@@ -6,7 +6,9 @@ import 'package:vibe_cart/api/category_provider.dart';
 import 'package:vibe_cart/provider/OrderProvider.dart';
 import 'package:vibe_cart/provider/auth_provider.dart';
 import 'package:vibe_cart/provider/cart_provider.dart';
+import 'package:vibe_cart/provider/comment_provider.dart';
 import 'package:vibe_cart/provider/favorites_provider.dart';
+import 'package:vibe_cart/provider/food_basket_provider.dart';
 import 'package:vibe_cart/provider/offers_provider.dart';
 import 'package:vibe_cart/provider/product_provider.dart';
 import 'package:vibe_cart/provider/supermarket_provider.dart';
@@ -48,11 +50,12 @@ void main() async {
       
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
-     //   ChangeNotifierProvider(create: (_) => CenterProvider()),
+        ChangeNotifierProvider(create: (_) => CommentProvider()),
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => SuperMarketProvider()),
         ChangeNotifierProvider(create: (_) => OffersProvider()),
+        ChangeNotifierProvider(create: (_) => FoodBasketProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => FavoritesProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider(apiService: ApiService())), 

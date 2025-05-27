@@ -1,130 +1,117 @@
-// lib/widgets/offer_item.dart
 import 'package:flutter/material.dart';
 import 'package:vibe_cart/models/offer.dart';
-import 'package:vibe_cart/screens/product_details_screen.dart';
-import 'package:vibe_cart/utils/theme.dart';
+
 class OfferItem extends StatelessWidget {
   final Offer offer;
-
   const OfferItem({
-    super.key,
+    Key? key,
     required this.offer,
-  });
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        // Navigate to product details, passing necessary data
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ProductDetailsScreen(
-              product: /* map offer back to Product or update details screen to accept Offer */,
-            ),
-          ),
-        );
-      },
-      child: Container(
-        width: 300,
-        margin: const EdgeInsets.only(right: 16),
-        decoration: BoxDecoration(
-          color: AppColors.secondary.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              spreadRadius: 1,
-              blurRadius: 5,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              // صورة المنتج
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: offer.productImage != null && offer.productImage!.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          offer.productImage!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) {
-                            return const Icon(
-                              Icons.local_grocery_store,
-                              size: 40,
-                              color: AppColors.accent,
-                            );
-                          },
-                        ),
-                      )
-                    : const Icon(
-                        Icons.local_grocery_store,
-                        size: 40,
-                        color: AppColors.accent,
-                      ),
-              ),
-              const SizedBox(width: 16),
-              // تفاصيل العرض
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      offer.productName ?? 'منتج',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (offer.supermarketName != null)
-                      Text(
-                        offer.supermarketName!,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.black54,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    if (offer.description != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          offer.description!,
-                          style: const TextStyle(fontSize: 12),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    if (offer.discountPercentage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          '${offer.discountPercentage!.toStringAsFixed(0)}% خصم',
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
+    // نفس طريقة المنتجات:
+    final String imageUrl;
+    if (offer.productImage != null && offer.productImage!.startsWith('http')) {
+      imageUrl = offer.productImage!;
+    } else if (offer.productImage != null &&
+        (offer.productImage!.endsWith('.jpg') ||
+            offer.productImage!.endsWith('.jpeg') ||
+            offer.productImage!.endsWith('.png'))) {
+   imageUrl = 'http://192.168.1.107:8000/products/${offer.productImage}';
+    } else {
+      imageUrl = '';
+    }
+
+    return Container(
+      width: 160,
+      margin: const EdgeInsets.only(right: 16, bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade200,
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          // هنا تفتح صفحة تفاصيل العرض أو المنتج لو أحببت
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // صورة العرض/المنتج
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                child: imageUrl.isNotEmpty
+                    ? Image.network(
+                        imageUrl,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey[300],
+                          child: const Icon(
+                            Icons.image_not_supported,
+                            color: Colors.grey,
                           ),
                         ),
+                      )
+                    : Container(
+                        color: Colors.grey[300],
+                        child: const Icon(
+                          Icons.image_not_supported,
+                          color: Colors.grey,
+                        ),
                       ),
-                  ],
-                ),
               ),
-            ],
-          ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    offer.productName ?? 'اسم المنتج',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  if (offer.discountPercentage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        '${offer.discountPercentage!.toStringAsFixed(0)}% خصم',
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  if (offer.supermarketName != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        offer.supermarketName!,
+                        style: const TextStyle(
+                          color: Colors.blueGrey,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

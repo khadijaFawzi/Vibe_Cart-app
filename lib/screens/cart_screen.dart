@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:vibe_cart/provider/cart_provider.dart';
-import 'package:vibe_cart/models/cart_group.dart';
+
 import 'package:vibe_cart/screens/checkout_screen.dart';
 import 'package:vibe_cart/utils/theme.dart';
 
@@ -49,7 +49,7 @@ class _CartScreenState extends State<CartScreen> {
                           fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       subtitle: Text(
-                        'الإجمالي: ${grp.subtotal.toStringAsFixed(2)} ر.س',
+                        'الإجمالي: ${grp.subtotal.toStringAsFixed(2)} ر.ي',
                         style: const TextStyle(color: AppColors.accent),
                       ),
                       children: [
@@ -72,7 +72,7 @@ class _CartScreenState extends State<CartScreen> {
                               ),
                               title: Text(item.productName),
                               subtitle: Text(
-                                '×${item.quantity} = ${item.total.toStringAsFixed(2)} ر.س',
+                                '×${item.quantity} = ${item.total.toStringAsFixed(2)} ر.ي',
                               ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,

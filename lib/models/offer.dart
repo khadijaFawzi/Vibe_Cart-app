@@ -13,6 +13,8 @@ class Offer {
   final bool isAiProcessed;
   final String? extractedText;
   final bool isVerified;
+  final double? originalPrice;      // السعر الأصلي
+  final double? discountedPrice;    // السعر بعد الخصم
 
   Offer({
     required this.id,
@@ -29,6 +31,8 @@ class Offer {
     required this.isAiProcessed,
     this.extractedText,
     required this.isVerified,
+    this.originalPrice,
+    this.discountedPrice,
   });
 
   factory Offer.fromJson(Map<String, dynamic> json) {
@@ -59,21 +63,36 @@ class Offer {
       return s == 'true' || s == '1';
     }
 
+    // الصورة
+    String? imageName = json['Image']?.toString() ?? json['image']?.toString();
+    String? productImageUrl;
+    if (imageName != null && imageName.isNotEmpty) {
+      productImageUrl = 'http://192.168.1.107:8000/products/$imageName';
+    }
+
     return Offer(
       id: parseInt(json['id']),
       supermarketId: parseInt(json['supermarket_id']),
-      supermarketName: json['supermarket_name']?.toString(),
+      supermarketName: json['supermarket_name']?.toString() ?? json['SupermarketName']?.toString(),
       productId: json['product_id'] != null ? parseInt(json['product_id']) : null,
       productName: json['product_name']?.toString(),
-      productImage: json['product_image']?.toString(),
+      productImage: productImageUrl,
       startDate: parseDate(json['start_date']),
       endDate: parseDate(json['end_date']),
       discountPercentage: parseDouble(json['discount_percentage']),
-      description: json['description']?.toString(),
-      offerImage: json['offer_image']?.toString(),
+      description: json['Description']?.toString() ?? json['description']?.toString(),
+      offerImage: json['offer_image']?.toString() ?? json['image']?.toString(),
       isAiProcessed: parseBool(json['is_ai_processed']),
       extractedText: json['extracted_text']?.toString(),
       isVerified: parseBool(json['is_verified']),
+      originalPrice: parseDouble(json['original_price']),       // السعر الأصلي من الـ API
+      discountedPrice: parseDouble(json['discounted_price']),   // السعر بعد الخصم من الـ API
     );
   }
+  String formatDate(DateTime? date) {
+  if (date == null) return '';
+  String twoDigits(int n) => n.toString().padLeft(2, '0');
+  return '${date.year}-${twoDigits(date.month)}-${twoDigits(date.day)}';
+}
+
 }
